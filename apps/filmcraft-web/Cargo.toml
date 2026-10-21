@@ -9,6 +9,14 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+default = ["patent-codecs"]
+patent-codecs = ["filmcraft-engine/patent-codecs", "filmcraft-ui-egui/patent-codecs", "filmcraft-codecs/patent-codecs"]
+page-control = []
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
@@ -20,6 +28,7 @@ filmcraft-ui-egui = { workspace = true }
 filmcraft-media = { workspace = true }
 filmcraft-codecs = { workspace = true }
 filmcraft-frame = { workspace = true }
+filmcraft-export = { workspace = true }
 filmcraft-color = { workspace = true }
 filmcraft-isobmff = { workspace = true }
 filmcraft-format = { workspace = true }

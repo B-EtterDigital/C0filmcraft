@@ -10,8 +10,8 @@
 //!
 //! When a source's bytes are not available yet (asynchronous web reads mark
 //! [`filmcraft_media::pending`]), the video batch is rendered again on the next call: nothing is encoded
-//! from frames with missing media. Known, pre-existing web issue (TODO, separate fix): the audio pull
-//! has already advanced its position when it hits a pending source, so a retried group loses its audio.
+//! from frames with missing media. Audio pulls also preserve their cursor and limiter state until
+//! the source data is available, so retrying does not lose samples.
 //!
 //! The file does not depend on how many frames a step renders (one per core natively, one on the
 //! web): packets go to the muxer in fixed groups of [`INTERLEAVE`] output frames, each followed by
@@ -40,8 +40,8 @@
 //!   flag after every frame, on whatever thread drew it, and a batch that saw it is discarded:
 //!   a prefetched batch that hit pending is dropped and rendered again by the next step, and
 //!   nothing is ever encoded from it. The audio pull checks the flag on the encoding thread right
-//!   after pulling, before a frame is encoded (the batch is then not encoded; its audio is not
-//!   recovered, see the known issue above) and the prefetched batch is dropped too, because the step
+//!   after pulling, before a frame is encoded (the batch is then not encoded and the audio cursor
+//!   stays in place) and the prefetched batch is dropped too, because the step
 //!   did not advance `next`.
 //! * **Cancellation** is checked at the start of every step, which drops the prefetched frames;
 //!   the prefetch is not started once it is set.
@@ -461,6 +461,9 @@ impl Exporter {
             }
             return Ok(Step::Progress);
         }
+        if !self.venc.ready()? || !self.aenc.as_mut().map(|a| a.ready()).transpose()?.unwrap_or(true) {
+            return Ok(Step::Pending);
+        }
         if self.next < self.f1 {
             return self.step_batch(sources, progress);
         }
@@ -476,12 +479,21 @@ impl Exporter {
             return Ok(Step::Progress);
         }
         let finishing = web_time::Instant::now();
-        let mixed = self.audio.as_mut().and_then(|a| a.rest(sources));
+        let mut mixed = self.audio.as_mut().and_then(|a| a.rest(sources));
         if filmcraft_media::pending::take() {
             return Ok(Step::Pending);
         }
         if self.mux.is_none() && self.mxf.is_none() {
             self.open_mux()?;
+        }
+        if self.aenc.as_ref().is_some_and(|encoder| encoder.asynchronous()) {
+            self.write_audio(mixed.take())?;
+        }
+        if !self.venc.finish_ready()? || !self.aenc.as_mut().map(|a| a.finish_ready()).transpose()?.unwrap_or(true) {
+            return Ok(Step::Pending);
+        }
+        if let (Some(mux), Some(entry)) = (self.mux.as_mut(), self.venc.final_sample_entry()) {
+            mux.set_sample_entry(self.vt, entry).map_err(|e| ExportError::Io(e.to_string()))?;
         }
         let mut tail = std::mem::take(&mut self.queued);
         tail.extend(self.venc.flush()?);
@@ -491,6 +503,9 @@ impl Exporter {
             let mux = self.mux.as_mut().ok_or_else(|| ExportError::Encode("internal: the container writer was not created".into()))?;
             for (au, duration) in a.flush_timed()? {
                 mux.write_sample(at, WriteSample { data: &au, duration, composition_offset: 0, is_sync: true }).map_err(|e| ExportError::Io(e.to_string()))?;
+            }
+            if let Some((priming, duration)) = a.final_timing() {
+                mux.set_presentation_window(at, u64::from(priming), duration).map_err(|e| ExportError::Io(e.to_string()))?;
             }
             if let Some(entry) = a.final_sample_entry() {
                 mux.set_sample_entry(at, entry).map_err(|e| ExportError::Io(e.to_string()))?;
@@ -598,8 +613,7 @@ impl Exporter {
         }
         let end = f.saturating_add(i64::try_from(frames.len()).unwrap_or(0));
         // the audio of every interleave group that ends in this batch, mixed before encoding so a
-        // pending source stops the step before any frame of the batch is encoded (the audio position has
-        // already moved though: known web issue, see the module docs)
+        // pending source stops the step before any frame of the batch is encoded or its audio is consumed.
         let cuts: Vec<i64> = (f + 1..=end).filter(|&g| (g - self.f0) % INTERLEAVE == 0).collect();
         let mut mixed = Vec::with_capacity(cuts.len());
         if let Some(sr) = self.audio.as_ref().map(|a| a.sr) {

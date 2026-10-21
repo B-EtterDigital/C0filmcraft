@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>C0vid</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #status { position: absolute; inset: 16px; margin: 0; color: #d44; font: 14px system-ui; white-space: pre-wrap; pointer-events: none; }
+  </style>
+  <script>
+    const params = new URLSearchParams(location.search);
+    if (!params.has('empty') || !params.has('norecover')) {
+      params.set('empty', ''); params.set('norecover', '');
+      history.replaceState(null, '', location.pathname + '?' + params + location.hash);
+    }
+  </script>
+</head>
+<body>
+  <canvas id="filmcraft_canvas"></canvas>
+  <pre id="status" role="alert"></pre>
+  <script type="module">
+    window.filmcraftLoad = {};
+    const t0 = performance.now();
+    const errorText = error => String(error?.stack || error?.message || error);
+    window.filmcraftFatal = error => {
+      window.filmcraftLoad.fatal = errorText(error);
+      document.getElementById('status').textContent = 'FilmCraft: ' + errorText(error);
+    };
+    addEventListener('error', event => window.filmcraftFatal(event.error || event.message));
+    addEventListener('unhandledrejection', event => window.filmcraftFatal(event.reason));
+    try {
+      const { default: init, start } = await import('./filmcraft_web.__FC_BUILD__.js');
+      await init({ module_or_path: new URL('filmcraft_web_bg.__FC_BUILD__.wasm', location.href) });
+      window.filmcraftLoad.wasmMs = performance.now() - t0;
+      await start('filmcraft_canvas');
+      window.__c0hostRequest = (json) => window.__filmcraftControl(json);
+      const result = JSON.parse(await window.__c0hostRequest(JSON.stringify({method:'c0.set',params:{panels:{title_bar:false,header:false,menu_bar:false,start_screen:false,community_links:false}}})));
+      if (!result.ok) throw new Error(result.error);
+      window.filmcraftLoad.readyMs = performance.now() - t0;
+    } catch (error) {
+      const query = new URLSearchParams(location.search);
+      if (!query.has('webgl') && !query.has('cpu') && /wgpu|webgpu|requestDevice|requestAdapter|GPUDevice|surface/i.test(errorText(error))) {
+        query.set('webgl', '');
+        location.replace(location.pathname + '?' + query + location.hash);
+      } else {
+        window.filmcraftLoad.error = errorText(error);
+        window.filmcraftFatal(error);
+      }
+    }
+  </script>
+</body>
+</html>

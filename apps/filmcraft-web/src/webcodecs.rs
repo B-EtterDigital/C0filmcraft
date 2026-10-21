@@ -210,6 +210,8 @@ pub fn reader_opener(name: &str, head: &[u8], reader: &SharedReader) -> Option<R
         Ok(f) => f,
         Err(_) => return Some(Ok(inner)),
     };
+    #[cfg(all(feature = "page-control", not(feature = "patent-codecs")))]
+    let inner = crate::page_control::codecs::wrap(reader, &file, inner);
     let Some(track) = file.tracks.iter().position(|t| t.kind == TrackKind::Video && !t.samples.is_empty()) else { return Some(Ok(inner)) };
     let Some(entry) = file.tracks[track].entries.first() else { return Some(Ok(inner)) };
     let fourcc = entry.format.to_string();

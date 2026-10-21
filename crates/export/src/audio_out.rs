@@ -79,6 +79,9 @@ impl AudioOut {
             }
             let n = (self.end - pos).min(self.sr as i64) as usize;
             let buf = self.mix(pos, n, sources);
+            if filmcraft_media::pending::take() {
+                return Err(crate::c0_codec_policy::pending_loudness_error());
+            }
             let refs: Vec<&[f32]> = buf.iter().map(Vec::as_slice).collect();
             meter.process(&refs);
             pos += n as i64;
@@ -106,6 +109,10 @@ impl AudioOut {
                     if let Some(buf) = self.pull(until, sources) {
                         let refs: Vec<&[f32]> = buf.iter().map(Vec::as_slice).collect();
                         limited.process(&refs);
+                    }
+                    if filmcraft_media::pending::take() {
+                        self.rewind(start, best_gain);
+                        return Err(crate::c0_codec_policy::pending_loudness_error());
                     }
                 }
                 let achieved = limited.integrated();
@@ -178,6 +185,9 @@ impl AudioOut {
         let want_in = until + self.latency;
         let n_in = (want_in - self.next_in).max(0) as usize;
         let mut buf = self.mix(self.next_in, n_in, sources);
+        if filmcraft_media::pending::is_set() {
+            return None;
+        }
         // the first call also fills the limiter's look-ahead
         let drop = (self.latency - (self.next_in - self.out)).clamp(0, n_in as i64) as usize;
         self.next_in = want_in;

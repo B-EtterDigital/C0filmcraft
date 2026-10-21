@@ -1,5 +1,7 @@
 //! The video decoder trait and the built-in Motion-JPEG decoder.
 
+#[cfg(not(feature = "patent-codecs"))]
+pub use crate::c0_no_patent::{H264Decoder, HevcDecoder, h264_factory, h264_threads, hevc_factory};
 use filmcraft_frame::VideoFrame;
 use filmcraft_isobmff::{CodecConfig, SampleEntry};
 
@@ -56,6 +58,7 @@ pub trait VideoDecoder: Send {
 /// Worker threads of the H.264 decoders made for background work (thumbnails): a frame-threaded
 /// 4K decoder holds `threads + 2` pictures in flight (~0.5 GB with 16 threads), and the frame
 /// workers already decode different files in parallel.
+#[cfg(feature = "patent-codecs")]
 const BACKGROUND_H264_THREADS: usize = 2;
 
 /// NAL unit headers of a length-prefixed (avcC / hvcC) sample: the first two bytes of each unit.
@@ -265,6 +268,7 @@ pub fn mjpeg_factory(e: &SampleEntry) -> Option<Result<Box<dyn VideoDecoder>>> {
 }
 
 /// Our pure-Rust H.264 decoder (frame-threaded).
+#[cfg(feature = "patent-codecs")]
 pub struct H264Decoder {
     avcc: Vec<u8>,
     dec: filmcraft_h264::Decoder,
@@ -274,6 +278,7 @@ pub struct H264Decoder {
     threads: usize,
 }
 
+#[cfg(feature = "patent-codecs")]
 impl H264Decoder {
     /// The worker threads for a decoder made now.
     fn threads_now() -> usize {
@@ -326,6 +331,7 @@ impl H264Decoder {
 /// An H.264 decoder error as a [`CodecError`]: a feature the decoder does not implement (High
 /// 4:2:2, field pictures...) is [`CodecError::Unsupported`], so the media pool shows the
 /// unreadable slate instead of a black picture (#626); anything else is a decode error.
+#[cfg(feature = "patent-codecs")]
 fn h264_error(e: filmcraft_h264::Error) -> CodecError {
     match e {
         filmcraft_h264::Error::Unsupported(what) => CodecError::Unsupported(format!("H.264: {what}")),
@@ -333,6 +339,7 @@ fn h264_error(e: filmcraft_h264::Error) -> CodecError {
     }
 }
 
+#[cfg(feature = "patent-codecs")]
 impl VideoDecoder for H264Decoder {
     fn decode(&mut self, sample: &[u8], pts: i64) -> Result<Vec<DecodedFrame>> {
         let pics = self.dec.decode(sample, pts).map_err(h264_error)?;
@@ -371,15 +378,18 @@ impl VideoDecoder for H264Decoder {
 
 /// The H.264 decoder's output planes come from the frames the caches evicted
 /// (`filmcraft_frame::pool`) instead of the allocator.
+#[cfg(feature = "patent-codecs")]
 fn recycle_h264_planes() {
     filmcraft_h264::set_plane_allocator(filmcraft_frame::pool::take_u8);
 }
 
 /// Worker threads each H.264 decoder uses (frame threading; 1 on wasm).
+#[cfg(feature = "patent-codecs")]
 pub fn h264_threads() -> usize {
     filmcraft_h264::default_threads()
 }
 
+#[cfg(feature = "patent-codecs")]
 pub fn h264_factory(e: &SampleEntry) -> Option<Result<Box<dyn VideoDecoder>>> {
     match &e.codec {
         CodecConfig::Avc(a) => Some(H264Decoder::new(a.to_bytes()).map(|d| Box::new(d) as Box<dyn VideoDecoder>)),
@@ -388,6 +398,7 @@ pub fn h264_factory(e: &SampleEntry) -> Option<Result<Box<dyn VideoDecoder>>> {
 }
 
 /// Our pure-Rust HEVC decoder (Main / Main 10, frame-threaded).
+#[cfg(feature = "patent-codecs")]
 pub struct HevcDecoder {
     hvcc: Vec<u8>,
     dec: filmcraft_hevc::Decoder,
@@ -395,6 +406,7 @@ pub struct HevcDecoder {
     highest_tid: Option<u8>,
 }
 
+#[cfg(feature = "patent-codecs")]
 impl HevcDecoder {
     pub fn new(hvcc: Vec<u8>) -> Result<Self> {
         let dec = filmcraft_hevc::Decoder::from_hvcc(&hvcc).map_err(hevc_error)?;
@@ -438,6 +450,7 @@ impl HevcDecoder {
 }
 
 /// An HEVC decoder error as a [`CodecError`] (see [`h264_error`]).
+#[cfg(feature = "patent-codecs")]
 fn hevc_error(e: filmcraft_hevc::Error) -> CodecError {
     match e {
         filmcraft_hevc::Error::Unsupported(what) => CodecError::Unsupported(format!("HEVC: {what}")),
@@ -445,6 +458,7 @@ fn hevc_error(e: filmcraft_hevc::Error) -> CodecError {
     }
 }
 
+#[cfg(feature = "patent-codecs")]
 impl VideoDecoder for HevcDecoder {
     fn decode(&mut self, sample: &[u8], pts: i64) -> Result<Vec<DecodedFrame>> {
         let pics = self.dec.decode(sample, pts).map_err(hevc_error)?;
@@ -477,6 +491,7 @@ impl VideoDecoder for HevcDecoder {
     }
 }
 
+#[cfg(feature = "patent-codecs")]
 pub fn hevc_factory(e: &SampleEntry) -> Option<Result<Box<dyn VideoDecoder>>> {
     match &e.codec {
         CodecConfig::Hevc(c) => Some(HevcDecoder::new(c.to_bytes()).map(|d| Box::new(d) as Box<dyn VideoDecoder>)),

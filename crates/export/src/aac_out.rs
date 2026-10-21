@@ -149,6 +149,9 @@ pub(crate) fn export(
             progress.done.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if filmcraft_media::pending::take() {
+        return Err(crate::c0_codec_policy::pending_audio_error());
+    }
     sink.write(enc.flush()?)?;
     let n = sink.finish(settings)?;
     if settings.part_of_batch {

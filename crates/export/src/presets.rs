@@ -32,7 +32,7 @@ pub fn preset_key(name: &str) -> String {
 }
 
 /// The default preset (Quick Export, a fresh Export mode).
-pub const DEFAULT_PRESET: &str = "Match Source – Adaptive High Bitrate";
+pub const DEFAULT_PRESET: &str = if cfg!(feature = "patent-codecs") { "Match Source – Adaptive High Bitrate" } else { "Match Source – Motion JPEG" };
 
 fn h264(size: Option<(u32, u32)>, kbps: u32, max_kbps: u32) -> ExportSettings {
     ExportSettings {
@@ -98,7 +98,7 @@ pub fn builtin_presets() -> Vec<ExportPreset> {
     let bc = "Broadcast";
     let vertical = ExportSettings { scaling: Scaling::ScaleToFill, ..h264(Some((1080, 1920)), 12_000, 16_000) };
     vec![
-        p(DEFAULT_PRESET, ms, "H.264 at the sequence's frame size and rate; bitrate adapts to the frame size (0.2 bits per pixel)", adaptive(0.2)),
+        p(DEFAULT_PRESET, ms, crate::c0_codec_policy::default_description(), crate::c0_codec_policy::default_settings(adaptive(0.2))),
         p("Match Source – Adaptive Medium Bitrate", ms, "H.264 at the sequence's frame size and rate; 0.1 bits per pixel", adaptive(0.1)),
         p("Match Source – Adaptive Low Bitrate", ms, "H.264 at the sequence's frame size and rate; 0.05 bits per pixel", adaptive(0.05)),
         p("High Quality 1080p HD", web, "H.264 1920×1080, VBR 1 pass, 20 Mbps target, AAC 320 kbps", h264(Some((1920, 1080)), 20_000, 24_000)),

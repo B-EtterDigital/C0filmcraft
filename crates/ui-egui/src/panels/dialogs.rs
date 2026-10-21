@@ -4,6 +4,7 @@
 use crate::{Dialog, FilmcraftApp};
 
 pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
+    ctx.data_mut(|data| data.insert_temp(crate::c0_host::community_key(), app.c0.chrome.community_links));
     crate::panels::media_dialogs::show(app, ctx);
     crate::panels::color_dialogs::show(app, ctx);
     crate::panels::clip_dialogs::show(app, ctx);
@@ -450,6 +451,10 @@ fn about(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
 /// Automation ids: `about.discord`, `about.website`, `about.appPage`, `about.github`,
 /// `about.reportIssue`.
 fn about_tab(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
+    if !app.c0.chrome.community_links {
+        crate::c0_host::about(ui);
+        return;
+    }
     use crate::icons::{self, Icon};
     use crate::links;
     let t = app.tokens;

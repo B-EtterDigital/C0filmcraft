@@ -9,9 +9,15 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["patent-codecs"]
+patent-codecs = ["filmcraft-engine/patent-codecs", "filmcraft-export/patent-codecs"]
+
 [dependencies]
 craft-ui = { workspace = true }
 filmcraft-time = { workspace = true }
+filmcraft-format = { workspace = true }
+base64 = "0.22"
 filmcraft-geom = { workspace = true }
 filmcraft-color = { workspace = true }
 filmcraft-frame = { workspace = true }
@@ -47,7 +53,7 @@ cpu-time = "1"
 
 [dev-dependencies]
 pollster = "0.4"
-filmcraft-codecs = { workspace = true }
+filmcraft-codecs = { workspace = true, default-features = true }
 # the bench registers OS hardware decoders as the desktop app does (dev-dependency only: ui-egui
 # itself stays OS-independent and web-portable)
 filmcraft-platform = { workspace = true }

@@ -1,12 +1,16 @@
 //! Audio decoding: PCM directly; compressed codecs through symphonia (bootstrap, MPL-2.0 unmodified).
 
+#[cfg(not(feature = "patent-codecs"))]
+pub use crate::c0_no_patent::aac_output_rate;
 use std::sync::Arc;
 
 use filmcraft_frame::{AudioBuffer, VideoFrame};
 use filmcraft_media::{AudioStreamInfo, FrameRequest, MediaError, MediaInfo, MediaKind, MediaSource, SharedSource};
 use filmcraft_time::Tick;
 use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::{CODEC_TYPE_AAC, CODEC_TYPE_ALAC, CODEC_TYPE_FLAC, CODEC_TYPE_MP3, CodecParameters, CodecType, Decoder, DecoderOptions};
+#[cfg(feature = "patent-codecs")]
+use symphonia::core::codecs::CODEC_TYPE_AAC;
+use symphonia::core::codecs::{CODEC_TYPE_ALAC, CODEC_TYPE_FLAC, CODEC_TYPE_MP3, CodecParameters, CodecType, Decoder, DecoderOptions};
 use symphonia::core::formats::{FormatOptions, Packet};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
@@ -17,6 +21,7 @@ use crate::{CodecError, Result};
 enum Inner {
     /// Our own AAC-LC decoder. `up` interpolates HE-AAC's core to the output rate (see [`Upsample2x`]).
     /// Surround output is reordered to WAV/SMPTE order (see [`aac_to_wav_order`]).
+    #[cfg(feature = "patent-codecs")]
     Aac { dec: Box<filmcraft_aac::Decoder>, asc: Vec<u8>, up: Option<Box<Upsample2x>> },
     /// AAC whose configuration arrives with the first frame (ADTS / LATM).
     AacPending,
@@ -63,6 +68,7 @@ fn vorbis_to_wav_order(channels: usize) -> Option<&'static [usize]> {
 /// used elsewhere, as the AC-3 decoder does and the AAC encoder's caller undoes on export. Only the
 /// unambiguous channel configurations 3–6, 11 (6.1: … LFE, back centre, sides) and 12 (7.1: … LFE,
 /// backs, sides); 1, 2, 7 and PCE layouts keep the decoded order.
+#[cfg(feature = "patent-codecs")]
 fn aac_to_wav_order(channel_config: u8) -> Option<&'static [usize]> {
     Some(match channel_config {
         3 => &[1, 2, 0],
@@ -117,6 +123,7 @@ impl PacketDecoder {
     /// AAC: our decoder for AAC-LC and the AAC-LC core of HE-AAC (v1/v2); symphonia for other
     /// object types. `sample_rate` is the stream's output rate: when it is twice the core rate
     /// (HE-AAC, see [`aac_output_rate`]) the decoded core is upsampled to it.
+    #[cfg(feature = "patent-codecs")]
     pub fn aac(asc: &[u8], sample_rate: u32) -> Result<Self> {
         if let Ok(dec) = filmcraft_aac::Decoder::new(asc) {
             let up = upsamples_core(dec.sample_rate(), sample_rate).then(|| Box::new(Upsample2x::new(dec.channels())));
@@ -153,6 +160,7 @@ impl PacketDecoder {
         Self { inner: Inner::AacPending, channels: 0 }
     }
     /// (Re)configure for the AudioSpecificConfig `asc` unless it is the current one.
+    #[cfg(feature = "patent-codecs")]
     pub fn ensure_aac(&mut self, asc: &[u8]) -> Result<()> {
         if let Inner::Aac { asc: cur, .. } = &self.inner
             && cur == asc
@@ -191,6 +199,7 @@ impl PacketDecoder {
             self.inner = Self::mpeg_audio(layer, rate)?.inner;
         }
         let dec = match &mut self.inner {
+            #[cfg(feature = "patent-codecs")]
             Inner::Aac { dec, up, .. } => {
                 let mut out = dec.decode(data).map_err(|e| CodecError::Decode(e.to_string()))?;
                 if let Some(up) = up {
@@ -280,6 +289,7 @@ impl PacketDecoder {
     }
     pub fn reset(&mut self) {
         match &mut self.inner {
+            #[cfg(feature = "patent-codecs")]
             Inner::Aac { dec, asc, up } => {
                 if let Ok(d) = filmcraft_aac::Decoder::new(asc) {
                     **dec = d;
@@ -311,6 +321,7 @@ pub fn mpeg_audio_layer(frame: &[u8]) -> Option<u8> {
 /// Explicit signalling names the rate in the `AudioSpecificConfig`; with implicit signalling (an
 /// AAC-LC config at 24 kHz or less) SBR is only visible as fill-element data in the access units,
 /// so the first ones are decoded to look for it. `None` if `asc` is not one our decoder reads.
+#[cfg(feature = "patent-codecs")]
 pub fn aac_output_rate<'a>(asc: &[u8], first_units: impl IntoIterator<Item = &'a [u8]>) -> Option<u32> {
     let mut dec = filmcraft_aac::Decoder::new(asc).ok()?;
     let core = dec.sample_rate();
@@ -329,6 +340,7 @@ pub fn aac_output_rate<'a>(asc: &[u8], first_units: impl IntoIterator<Item = &'a
 }
 
 /// Whether [`PacketDecoder::aac`] upsamples a decoded AAC core at `core` Hz to `rate` (HE-AAC).
+#[cfg(feature = "patent-codecs")]
 fn upsamples_core(core: u32, rate: u32) -> bool {
     core.checked_mul(2) == Some(rate)
 }
@@ -356,8 +368,8 @@ pub enum FixedFrames<'a> {
 pub fn fixed_packet_samples(codec: FixedFrames, first: &[u8], rate: u32) -> Option<i64> {
     let mpegts = match codec {
         FixedFrames::Aac(asc) => {
-            let core = filmcraft_aac::Decoder::new(asc).ok()?.sample_rate();
-            return Some(if upsamples_core(core, rate) { 2048 } else { 1024 });
+            let core = crate::c0_codec_policy::aac_core_rate(asc)?;
+            return Some(if core.checked_mul(2) == Some(rate) { 2048 } else { 1024 });
         }
         FixedFrames::Eac3 => {
             let mut samples = 0usize;
@@ -418,6 +430,7 @@ pub fn contiguous_starts(packets: impl IntoIterator<Item = PacketTime>, toleranc
 }
 
 /// Taps on each side of the interpolation point in [`Upsample2x`].
+#[cfg(feature = "patent-codecs")]
 const UPSAMPLE_HALF: usize = 12;
 
 /// 2× upsampler for HE-AAC. Our decoder reconstructs the AAC-LC core at half the output rate and
@@ -428,12 +441,14 @@ const UPSAMPLE_HALF: usize = 12;
 /// state carries across packets, so a seek primed with the preceding packet gives the same
 /// samples as continuous decoding.
 #[derive(Clone)]
+#[cfg(feature = "patent-codecs")]
 pub struct Upsample2x {
     taps: [f32; 2 * UPSAMPLE_HALF],
     /// The last `2 × UPSAMPLE_HALF` input samples per channel.
     hist: Vec<Vec<f32>>,
 }
 
+#[cfg(feature = "patent-codecs")]
 impl Upsample2x {
     pub fn new(channels: usize) -> Self {
         let m = UPSAMPLE_HALF as f64;

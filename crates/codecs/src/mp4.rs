@@ -4,6 +4,8 @@
 //! (`media_time` = pre-skip), or applied from `dOps` when a file has no edit list; random access
 //! decodes [`crate::audio::OPUS_PRE_ROLL`] of preceding packets first (≥ the 80 ms `roll` distance).
 
+#[cfg(not(feature = "patent-codecs"))]
+use crate::c0_no_patent::{avc_format, hevc_format};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -625,6 +627,7 @@ fn yuv_label(chroma_format_idc: u32, bits: u32) -> String {
 /// extension is not trusted over the SPS: muxers have been seen writing `chroma_format` 0 (4:0:0)
 /// into it for 4:2:0 files, which labelled them "4:0:0" (#1959). The profile alone can't say (High
 /// 4:2:2 is 8 or 10-bit, High 10 can be 8-bit).
+#[cfg(feature = "patent-codecs")]
 fn avc_format(a: &filmcraft_isobmff::AvcConfig) -> Option<(u32, u32)> {
     let from_sps = a.sps.first().and_then(|n| n.get(1..)).and_then(|rbsp| filmcraft_h264::params::Sps::parse(&filmcraft_bitstream::unescape_rbsp(rbsp)).ok());
     if let Some(sps) = from_sps {
@@ -643,6 +646,7 @@ fn avc_format(a: &filmcraft_isobmff::AvcConfig) -> Option<(u32, u32)> {
 
 /// `chroma_format_idc` and luma bit depth of an HEVC track: from its first SPS, which is what the
 /// decoder decodes, else the `hvcC` record's own fields (which a muxer may leave at 0, i.e. "4:0:0").
+#[cfg(feature = "patent-codecs")]
 fn hevc_format(h: &filmcraft_isobmff::HevcConfig) -> (u32, u32) {
     let from_sps = h.sps().first().and_then(|n| n.get(2..)).and_then(|rbsp| filmcraft_hevc::params::Sps::parse(&filmcraft_bitstream::unescape_rbsp(rbsp)).ok());
     match from_sps {

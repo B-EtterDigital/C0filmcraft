@@ -2324,6 +2324,7 @@ dependencies = [
 name = "filmcraft-ui-egui"
 version = "0.10.0"
 dependencies = [
+ "base64 0.22.1",
  "cpu-time",
  "craft-ui",
  "eframe",
@@ -2335,6 +2336,7 @@ dependencies = [
  "filmcraft-edit",
  "filmcraft-engine",
  "filmcraft-export",
+ "filmcraft-format",
  "filmcraft-frame",
  "filmcraft-geom",
  "filmcraft-gpu",
@@ -2384,6 +2386,7 @@ dependencies = [
  "filmcraft-codecs",
  "filmcraft-color",
  "filmcraft-engine",
+ "filmcraft-export",
  "filmcraft-format",
  "filmcraft-frame",
  "filmcraft-isobmff",

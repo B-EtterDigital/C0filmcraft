@@ -133,6 +133,12 @@ pub async fn import_files(files: Vec<web_sys::File>) -> Value {
 }
 
 /// Open a `.fcproj` file picked or dropped by the user.
+#[cfg(feature = "page-control")]
+pub async fn open_project_file(file: web_sys::File) -> Result<Value, String> {
+    crate::page_control::files::open_project(file).await
+}
+
+#[cfg(not(feature = "page-control"))]
 pub async fn open_project_file(file: web_sys::File) -> Result<Value, String> {
     let buf = JsFuture::from(file.array_buffer()).await.map_err(|e| format!("{e:?}"))?;
     let path = format!("/projects/{}", file.name());
@@ -192,6 +198,8 @@ pub fn pick(exts: &[&str], multiple: bool) {
 
 /// [`pick`], handing the files to [`picked`]: a cancelled picker leaves nothing pending.
 fn pick_then(exts: &[&str], multiple: bool, relink: Option<RelinkHint>) {
+    #[cfg(feature = "page-control")]
+    let ticket = crate::page_control::files::begin();
     let accept: Vec<String> = exts.iter().map(|e| format!(".{e}")).collect();
     if has_fsa_picker() {
         let opts = js_sys::Object::new();
@@ -211,6 +219,10 @@ fn pick_then(exts: &[&str], multiple: bool, relink: Option<RelinkHint>) {
                     files.push(f);
                 }
             }
+            #[cfg(feature = "page-control")]
+            if !ticket.accept() {
+                return;
+            }
             picked(files, relink);
         });
         return;
@@ -222,6 +234,10 @@ fn pick_then(exts: &[&str], multiple: bool, relink: Option<RelinkHint>) {
     input.set_accept(&accept.join(","));
     let inp = input.clone();
     let on_change = Closure::<dyn FnMut()>::new(move || {
+        #[cfg(feature = "page-control")]
+        if !ticket.accept() {
+            return;
+        }
         if let Some(list) = inp.files() {
             picked((0..list.length()).filter_map(|i| list.get(i)).collect(), relink.clone());
         }

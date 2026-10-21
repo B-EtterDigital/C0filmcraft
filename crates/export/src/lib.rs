@@ -15,6 +15,9 @@
 
 use std::io::Write;
 
+mod c0_codec_policy;
+#[cfg(not(feature = "patent-codecs"))]
+use c0_codec_policy::{aac_factory, h264_factory};
 mod aac_out;
 mod audio_out;
 mod deflate;
@@ -63,7 +66,7 @@ pub type Result<T> = std::result::Result<T, ExportError>;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Format {
     /// MPEG-4 (or QuickTime, see [`Multiplexer`]), H.264 video + AAC audio.
-    #[default]
+    #[cfg_attr(feature = "patent-codecs", default)]
     #[serde(rename = "h264", alias = "H264")]
     H264,
     /// MPEG-4 (or QuickTime, see [`Multiplexer`]), H.265 / HEVC Main (8-bit) video + AAC audio. There is no
@@ -88,6 +91,7 @@ pub enum Format {
     #[serde(rename = "apv", alias = "Apv")]
     Apv,
     /// QuickTime, Motion-JPEG + PCM.
+    #[cfg_attr(not(feature = "patent-codecs"), default)]
     #[serde(rename = "mjpeg", alias = "Mjpeg")]
     Mjpeg,
     /// Numbered PNG stills ([`image_sequence_path`]).
@@ -251,7 +255,7 @@ impl Format {
     /// Whether the crate carries an encoder for the format; the others need one registered at runtime
     /// ([`register_format_probe`]).
     pub fn has_builtin_encoder(self) -> bool {
-        !matches!(self, Format::Hevc | Format::Av1)
+        !matches!(self, Format::Hevc | Format::Av1) && (cfg!(feature = "patent-codecs") || !matches!(self, Format::H264 | Format::Aac))
     }
     /// Sound without picture: Waveform Audio, AIFF, AAC Audio and FLAC.
     pub fn is_audio_only(self) -> bool {
@@ -300,7 +304,7 @@ pub enum H264Pass {
     #[default]
     Single,
     First,
-    Second(filmcraft_h264enc::PassStats),
+    Second(c0_codec_policy::PassStats),
 }
 
 /// Every Export-mode setting. Serialized in camelCase; every field is optional on input.
@@ -548,7 +552,7 @@ impl ColorSignal {
 impl Default for ExportSettings {
     fn default() -> Self {
         Self {
-            format: Format::H264,
+            format: Format::default(),
             path: String::new(),
             range: None,
             scale: 1.0,
@@ -735,6 +739,15 @@ pub struct EncoderFrame<'a> {
 }
 
 pub trait VideoEncoder: Send {
+    fn ready(&mut self) -> Result<bool> {
+        Ok(true)
+    }
+    fn finish_ready(&mut self) -> Result<bool> {
+        Ok(true)
+    }
+    fn final_sample_entry(&self) -> Option<SampleEntry> {
+        None
+    }
     /// MP4/MOV sample entry (codec config) — may only be complete after the first frame.
     fn sample_entry(&self) -> SampleEntry;
     fn timescale(&self) -> u32;
@@ -745,13 +758,25 @@ pub trait VideoEncoder: Send {
         None
     }
     /// First-pass statistics of a two-pass encode (H.264).
-    fn pass_stats(&self) -> Option<filmcraft_h264enc::PassStats> {
+    fn pass_stats(&self) -> Option<c0_codec_policy::PassStats> {
         None
     }
 }
 
 /// Audio encoder (AAC) plugged in by codec crates; PCM is built in.
 pub trait AudioEncoder: Send {
+    fn final_timing(&self) -> Option<(u32, u64)> {
+        None
+    }
+    fn asynchronous(&self) -> bool {
+        false
+    }
+    fn ready(&mut self) -> Result<bool> {
+        Ok(true)
+    }
+    fn finish_ready(&mut self) -> Result<bool> {
+        Ok(true)
+    }
     fn sample_entry(&self) -> SampleEntry;
     fn encode(&mut self, planar: &[Vec<f32>]) -> Result<Vec<Vec<u8>>>;
     fn flush(&mut self) -> Result<Vec<Vec<u8>>>;
@@ -1082,12 +1107,14 @@ fn mjpeg_factory(format: Format, w: u32, h: u32, rate: FrameRate, s: &ExportSett
 }
 
 /// AAC-LC (our encoder), 320 kbps stereo by default.
+#[cfg(feature = "patent-codecs")]
 struct AacEncoder {
     enc: filmcraft_aac::Encoder,
     rate: u32,
     channels: u32,
 }
 
+#[cfg(feature = "patent-codecs")]
 impl AudioEncoder for AacEncoder {
     fn sample_entry(&self) -> SampleEntry {
         SampleEntry::aac(self.enc.audio_specific_config(), self.channels, self.rate)
@@ -1159,6 +1186,7 @@ impl AudioEncoder for FlacAudio {
     }
 }
 
+#[cfg(feature = "patent-codecs")]
 fn aac_factory(_format: Format, sample_rate: u32, channels: u32, s: &ExportSettings) -> Option<Result<Box<dyn AudioEncoder>>> {
     // AAC caps a frame at 6144 bits per channel (ISO/IEC 14496-3 §4.5.3.2): 6 bits per sample, so
     // 264.6 kbps for stereo at 22.05 kHz; a higher setting is capped instead of refused
@@ -1490,6 +1518,7 @@ fn apv_factory(format: Format, w: u32, h: u32, rate: FrameRate, s: &ExportSettin
 
 /// H.264 High (our encoder): sRGB/709 RGBA8 → 8-bit limited-range BT.709 4:2:0, VBR at the
 /// requested bitrate, length-prefixed samples with the `avcC` in the sample entry.
+#[cfg(feature = "patent-codecs")]
 struct H264Encoder {
     enc: filmcraft_h264enc::Encoder,
     w: u32,
@@ -1501,6 +1530,7 @@ struct H264Encoder {
     signal: ColorSignal,
 }
 
+#[cfg(feature = "patent-codecs")]
 impl H264Encoder {
     fn packets(&self, ps: Vec<filmcraft_h264enc::Packet>) -> Vec<EncodedPacket> {
         ps.into_iter()
@@ -1509,6 +1539,7 @@ impl H264Encoder {
     }
 }
 
+#[cfg(feature = "patent-codecs")]
 impl VideoEncoder for H264Encoder {
     fn sample_entry(&self) -> SampleEntry {
         let cfg = filmcraft_isobmff::AvcConfig::parse(&self.enc.avcc()).unwrap_or_else(|_| {
@@ -1667,10 +1698,12 @@ pub fn rgbf_to_yuv420_10(rgb: &[f32], w: usize, h: usize, kr: f32, kb: f32, y: &
 /// Slices per H.264 picture: one per four macroblock rows. The encoder's default follows the core
 /// count, which would make the stream (and every decoded picture) depend on the machine; this is
 /// what it picks on a machine with enough cores.
+#[cfg(feature = "patent-codecs")]
 pub(crate) fn h264_slices(height: u32) -> usize {
     (height.div_ceil(16) as usize).div_ceil(4).max(1)
 }
 
+#[cfg(feature = "patent-codecs")]
 fn h264_factory(format: Format, w: u32, h: u32, rate: FrameRate, s: &ExportSettings) -> Option<Result<Box<dyn VideoEncoder>>> {
     if format != Format::H264 {
         return None;
@@ -1903,6 +1936,9 @@ pub fn export(project: &Arc<Project>, seq: ItemId, settings: &ExportSettings, so
                 if !settings.part_of_batch {
                     progress.done.fetch_add(1, Ordering::Relaxed);
                 }
+            }
+            if filmcraft_media::pending::take() {
+                return Err(crate::c0_codec_policy::pending_audio_error());
             }
             match &mut writer {
                 AudioWriter::Pcm(_) => out.write_all(pcm::pad(frames, ch, fmt)).map_err(io)?,

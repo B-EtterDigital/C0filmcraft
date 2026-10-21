@@ -63,6 +63,9 @@ pub fn menu_hint(command: &str) -> Option<String> {
 /// host can't open a browser, a dialog shows the address until it is closed ([`show_failed`]),
 /// so the click is never silently lost: the clipboard can fail too, and egui only logs that.
 pub fn open(app: &mut crate::FilmcraftApp, ctx: &egui::Context, url: &str) {
+    if !app.c0.chrome.community_links && crate::c0_host::community_url(url) {
+        return;
+    }
     if let Some(f) = app.hooks.open_url.as_mut() {
         match f(url) {
             Ok(()) => return,

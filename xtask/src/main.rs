@@ -289,6 +289,12 @@ fn web(args: &[String]) -> Result<(), String> {
     let profile = if dev { "dev" } else { "release" };
     let mut build = Command::new(env!("CARGO"));
     build.args(["build", "--target", "wasm32-unknown-unknown", "-p", "filmcraft-web", "--profile", profile]);
+    if args.iter().any(|arg| arg == "--page-control") {
+        build.args(["--features", "page-control"]);
+    }
+    if args.iter().any(|arg| arg == "--no-default-features") {
+        build.arg("--no-default-features");
+    }
     run(&mut build)?;
     let out = Command::new("wasm-bindgen")
         .arg("--version")

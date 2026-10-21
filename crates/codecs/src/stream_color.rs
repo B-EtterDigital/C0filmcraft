@@ -7,7 +7,9 @@
 //! what the container signals, which wins.
 
 use filmcraft_color::{ColorInfo, Matrix, Range, Transfer};
-use filmcraft_isobmff::{AvcConfig, CodecConfig, HevcConfig};
+use filmcraft_isobmff::CodecConfig;
+#[cfg(feature = "patent-codecs")]
+use filmcraft_isobmff::{AvcConfig, HevcConfig};
 
 use crate::video::primaries_from_code;
 
@@ -39,7 +41,9 @@ impl ColorCodes {
 /// codecs, an SPS without VUI, and a configuration that is truncated or corrupt.
 pub fn from_codec_config(codec: &CodecConfig) -> Option<ColorCodes> {
     match codec {
+        #[cfg(feature = "patent-codecs")]
         CodecConfig::Avc(c) => avc(c),
+        #[cfg(feature = "patent-codecs")]
         CodecConfig::Hevc(c) => hevc(c),
         CodecConfig::Av1(c) => av1(&c.config_obus),
         // VP8 has no colour signalling: its one colour space is BT.601 YUV, studio swing (RFC 6386 9.2)
@@ -48,6 +52,7 @@ pub fn from_codec_config(codec: &CodecConfig) -> Option<ColorCodes> {
     }
 }
 
+#[cfg(feature = "patent-codecs")]
 fn avc(c: &AvcConfig) -> Option<ColorCodes> {
     // NAL header byte: nal_unit_type 7 is an SPS
     let nal = c.sps.iter().find(|n| n.first().is_some_and(|h| h & 0x1f == 7))?;
@@ -56,6 +61,7 @@ fn avc(c: &AvcConfig) -> Option<ColorCodes> {
     Some(ColorCodes { primaries: v.colour_primaries, transfer: v.transfer_characteristics, matrix: v.matrix_coefficients, full_range: Some(v.full_range) })
 }
 
+#[cfg(feature = "patent-codecs")]
 fn hevc(c: &HevcConfig) -> Option<ColorCodes> {
     // two-byte NAL header: nal_unit_type 33 is an SPS (whatever array the record files it under)
     let nal = c.arrays.iter().flat_map(|a| &a.nalus).find(|n| n.first().is_some_and(|h| (h >> 1) & 0x3f == 33))?;

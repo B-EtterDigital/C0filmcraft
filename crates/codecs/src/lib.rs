@@ -24,6 +24,9 @@
 pub mod apv;
 pub mod audio;
 pub mod avi;
+mod c0_codec_policy;
+#[cfg(not(feature = "patent-codecs"))]
+mod c0_no_patent;
 pub mod gop;
 pub mod hw;
 mod hw_frame;

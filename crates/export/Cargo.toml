@@ -9,6 +9,10 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["patent-codecs"]
+patent-codecs = ["dep:filmcraft-h264enc", "dep:filmcraft-aac"]
+
 [dependencies]
 filmcraft-time = { workspace = true }
 filmcraft-frame = { workspace = true }
@@ -24,9 +28,9 @@ filmcraft-prores = { workspace = true }
 filmcraft-dnx = { workspace = true }
 filmcraft-apv = { workspace = true }
 filmcraft-mxf = { workspace = true }
-filmcraft-aac = { workspace = true }
+filmcraft-aac = { workspace = true, optional = true }
 filmcraft-flac = { workspace = true }
-filmcraft-h264enc = { workspace = true }
+filmcraft-h264enc = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -36,4 +40,4 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 
 [dev-dependencies]
 filmcraft-testkit = { workspace = true }
-filmcraft-codecs = { workspace = true }
+filmcraft-codecs = { workspace = true, default-features = true }

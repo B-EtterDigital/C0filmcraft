@@ -10,6 +10,8 @@
 //!   is presented as one multichannel stream, sample-exact.
 //! - Start timecode: the material package's timecode track.
 
+#[cfg(not(feature = "patent-codecs"))]
+pub use crate::c0_no_patent::avc_presentation_order;
 use std::sync::Arc;
 
 use filmcraft_frame::{AudioBuffer, VideoFrame};
@@ -62,6 +64,7 @@ pub struct MxfSource {
 /// Picture order counts of AVC access units (Annex B), in stored order, as presentation
 /// positions: the rank of (IDR period, POC) (8.2.1.1, picture order count type 0; types 1 and 2
 /// never reorder for the streams written by AVC encoders we have seen, so they keep stored order).
+#[cfg(feature = "patent-codecs")]
 pub fn avc_presentation_order(heads: &[Vec<u8>]) -> Option<Vec<i64>> {
     use filmcraft_bitstream::{annexb_nals, unescape_rbsp};
     use filmcraft_h264::params::{Pps, Sps};

@@ -24,6 +24,8 @@ pub mod download_pacing;
 pub mod fs;
 pub mod import;
 pub mod opfs;
+#[cfg(feature = "page-control")]
+pub mod page_control;
 pub mod recovery;
 pub mod recovery_policy;
 pub mod webcodecs;
@@ -185,6 +187,8 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
                     let _ = session.execute("file.openDemoProject", json!({}));
                 }
                 let mut app = FilmcraftApp::new(session);
+                #[cfg(feature = "page-control")]
+                page_control::configure(&mut app, &cc.egui_ctx);
                 import::install_hooks(&mut app);
                 // Settings ▸ General ▸ Interface Language ▸ System Language (#218): the browser's languages.
                 app.hooks.system_languages =
@@ -219,6 +223,8 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
         )
         .await?;
     set_info("startupMs", json!(t0.elapsed().as_secs_f64() * 1000.0));
+    #[cfg(feature = "page-control")]
+    page_control::attach(&runner).await?;
     // keep the runner alive for the page's lifetime
     std::mem::forget(runner);
     if let Some(el) = doc.get_element_by_id("loading") {

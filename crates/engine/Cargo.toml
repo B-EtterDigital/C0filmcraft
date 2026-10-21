@@ -10,7 +10,8 @@ rust-version.workspace = true
 workspace = true
 
 [features]
-default = []
+default = ["patent-codecs"]
+patent-codecs = ["filmcraft-codecs/patent-codecs", "filmcraft-export/patent-codecs"]
 # Speech-to-text with Whisper (candle, CPU). Off by default and in wasm builds.
 whisper = ["filmcraft-speech/whisper"]
 # Speech-model downloads over HTTPS.

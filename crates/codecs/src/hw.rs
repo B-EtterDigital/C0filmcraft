@@ -12,9 +12,13 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use filmcraft_isobmff::{CodecConfig, SampleEntry};
 
+#[cfg(feature = "patent-codecs")]
+use crate::CodecError;
+use crate::Result;
 pub use crate::hw_frame::{FrameCodec, FrameStreamInfo, PictureParams};
-use crate::video::{avcc_length_size, h264_disposable, hevc_disposable, hvcc_length_size_and_tid, sar_par, vui_color};
-use crate::{CodecError, Result};
+#[cfg(feature = "patent-codecs")]
+use crate::video::{avcc_length_size, hvcc_length_size_and_tid, sar_par, vui_color};
+use crate::video::{h264_disposable, hevc_disposable};
 
 static ENABLED: AtomicBool = AtomicBool::new(true);
 
@@ -209,6 +213,7 @@ fn without_trailing_zeros(nal: &[u8]) -> &[u8] {
 }
 
 /// Length-prefixed parameter-set entries (`u16` length + bytes) starting at `pos`.
+#[cfg(feature = "patent-codecs")]
 fn read_sets(rec: &[u8], pos: &mut usize, count: usize, out: &mut Vec<Vec<u8>>) -> Result<()> {
     for _ in 0..count {
         let len = rec
@@ -236,6 +241,7 @@ impl NalStreamInfo {
     }
 
     /// From an `avcC` (AVCDecoderConfigurationRecord) payload.
+    #[cfg(feature = "patent-codecs")]
     pub fn from_avcc(avcc: &[u8]) -> Result<Self> {
         if avcc.len() < 7 || avcc[0] != 1 {
             return Err(CodecError::Decode("bad avcC record".into()));
@@ -275,6 +281,7 @@ impl NalStreamInfo {
     }
 
     /// From an `hvcC` (HEVCDecoderConfigurationRecord) payload.
+    #[cfg(feature = "patent-codecs")]
     pub fn from_hvcc(hvcc: &[u8]) -> Result<Self> {
         if hvcc.len() < 23 || hvcc[0] != 1 {
             return Err(CodecError::Decode("bad hvcC record".into()));

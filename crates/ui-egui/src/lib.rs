@@ -31,6 +31,7 @@ macro_rules! tlf {
 
 pub mod automation;
 pub mod brand;
+pub mod c0_host;
 pub mod calc;
 mod cjk;
 pub mod control;
@@ -278,6 +279,7 @@ pub struct FilmcraftApp {
     pub session: Session,
     pub ui: UiState,
     pub tokens: Tokens,
+    pub c0: c0_host::Host,
     pub frames: Arc<FrameServer>,
     pub playback: Playback,
     pub source_playback: source_playback::SourcePlayback,
@@ -547,6 +549,7 @@ impl FilmcraftApp {
             session,
             ui: UiState { language, ..UiState::default() },
             tokens: Tokens::for_kind(ThemeKind::Dark),
+            c0: c0_host::Host::default(),
             frames,
             playback: Playback { speed: 1.0, ..Default::default() },
             source_playback: Default::default(),
@@ -651,7 +654,7 @@ impl FilmcraftApp {
     pub fn set_theme(&mut self, ctx: &egui::Context, k: ThemeKind) {
         let a = &self.session.prefs.appearance;
         let highlight = filmcraft_engine::settings::parse_hex(&a.highlight_color);
-        self.tokens = Tokens::for_kind(k).with_appearance(highlight, a.accessible_contrast);
+        self.tokens = theme::host::resolve(ctx, Tokens::for_kind(k).with_appearance(highlight, a.accessible_contrast));
         theme::apply_visuals(ctx, &self.tokens);
         self.apply_tooltips(ctx);
         self.ui.dark = k != ThemeKind::Light;
@@ -1844,22 +1847,24 @@ impl FilmcraftApp {
         let t = self.tokens;
         let full = ui.max_rect();
         ui.painter().rect_filled(full, 0.0, t.app_bg);
-        let header_h = if self.ui.show_header { 38.0 } else { 0.0 };
+        let header_h = if self.ui.show_header && self.c0.chrome.header && self.c0.chrome.title_bar { 38.0 } else { 0.0 };
         let header = egui::Rect::from_min_size(full.min, egui::vec2(full.width(), header_h));
         if self.ui.show_header {
             header::show(self, ui, header);
         }
-        let status_h = if self.ui.show_status_bar { 20.0 } else { 0.0 };
+        let status_h = if self.ui.show_status_bar && self.c0.chrome.status_bar { 20.0 } else { 0.0 };
         let body = egui::Rect::from_min_max(egui::pos2(full.min.x + 1.0, header.max.y + 1.0), egui::pos2(full.max.x - 1.0, full.max.y - status_h - 2.0));
         match self.ui.mode {
             state::Mode::Edit => self.dock_area(ui, body),
-            state::Mode::Import => panels::import_mode::show(self, ui, body),
+            state::Mode::Import if self.c0.chrome.start_screen => panels::import_mode::show(self, ui, body),
+            state::Mode::Import => self.dock_area(ui, body),
             state::Mode::Export => panels::export_mode::show(self, ui, body),
         }
         // the Timeline has had its chance to place a file drop this frame; anything left stays a bin import
         self.pending_timeline_drop = None;
         panels::dialogs::show(self, &ctx);
-        if !self.ui.show_status_bar {
+        c0_host::files::show(self, &ctx);
+        if !self.ui.show_status_bar || !self.c0.chrome.status_bar {
             // no bar to draw the job in, but a finished preview render still plays
             self.watch_jobs(ui.ctx());
             return;
