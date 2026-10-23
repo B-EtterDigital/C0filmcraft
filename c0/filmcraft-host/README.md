@@ -83,6 +83,7 @@ The original `window.filmcraft` API remains available.
 | `c0.newDocument` | `{template?:"blank"}`; null also means blank | Same replacement result; creates an empty Untitled project |
 | `c0.cancelFileDialog` | `{}` | `{cancelled:boolean}`; cancels pending replacement/native continuation and invalidates late browser-picker answers |
 | `c0.set` | `{themeTokens?,panels?}` | `{applied:string[],unknown:string[],invalid:string[]}` |
+| `ui.render` | `{sequence?: integer id, frame?: nonnegative integer, scale?: 0.001..1}` | `{pngBase64,width,height,sequence,frame,scale,presented:false}`; see below |
 
 `c0.inspect` returns:
 
@@ -91,7 +92,7 @@ The original `window.filmcraft` API remains available.
 - `sequences:[{id,name,active,durationFrames,fps:{num,den}}]`, `activeSequence` (id or null).
 - `playheadFrame`, `playing`, `selectionCount` (selected timeline clips).
 - `bins:[{name,items}]` (direct item count in each bin, including the root).
-- `panes:{title_bar,menu_bar,header,status_bar,start_screen,community_links}`.
+- `panes:{title_bar,menu_bar,header,status_bar,start_screen,community_links,toolbar,toolbar_double,toolbar_floating,toolbar_float:{pos},right_dock_collapsed,right_dock}`.
 - `theme` (FilmCraft preference name: `darkest`, `dark`, or `light`), `fileDialogPending`.
 
 Frame navigation rejects negative, fractional and unrepresentable offsets before changing the
@@ -137,6 +138,49 @@ colour tokens. Overrides survive theme changes. `panels` patches the boolean swi
 Valid siblings apply even when another key is unknown/invalid; returned keys are prefixed
 `themeTokens.<name>` or `panels.<name>`. Invalid container types return an error envelope.
 
+## Tool modes and the right dock: `panels.toolbar*`, `panels.right_dock_collapsed`
+
+The same keys as PhotoCraft's. The "tool strip" here is FilmCraft's **Tools panel** of the editing
+workspaces (Selection, Track Select, Ripple, Razor, Slip, Pen, Hand, Type and their grouped
+flyouts), drawn by `crates/ui-egui/src/panels/tools.rs` in every mode. All keys are booleans in
+`c0.set {panels}`, report in `c0.inspect().panes`, are never saved to preferences or a workspace,
+and default to upstream (`toolbar` true, the rest false):
+
+| Key | Meaning |
+|---|---|
+| `toolbar` | The Tools panel is shown (`false` hides it in every mode and gives its width to the Timeline) |
+| `toolbar_double` | Two tool columns instead of one (docked 84 pt wide instead of upstream's 64; or in the palette) |
+| `toolbar_floating` | A palette over the canvas area instead of a docked column |
+| `toolbar_float` | `{pos:[x,y]\|null}`: the palette's corner in points from the canvas area's corner (`null`: the Program monitor's corner). Dragging the palette's grip sets it |
+| `right_dock_collapsed` | The right dock folds to a 36 pt icon strip; see below |
+| `right_dock` | Read-only in `panes`: whether the layout has a right dock to fold (Assembly has none) |
+
+Single docked, double docked, single floating and double floating are the four combinations of
+`toolbar_double` and `toolbar_floating`. The modes are a *view* of the dock tree: the layout the user
+edits and saves is never changed, and at default values the dock is upstream's own. A Tools panel
+the user tabbed together with other panels, or closed, is left as the user arranged it.
+
+`right_dock_collapsed` folds the rightmost column of panels that holds no monitor or Timeline
+(Properties, Essential Graphics, Text; Lumetri, Effects; Essential Sound...). Each folded group shows
+one icon per panel (code-drawn icons) and an unfold button. An icon opens that panel in a flyout beside
+the strip, over the canvas; the flyout closes with the icon again, Escape or a press elsewhere. The
+switch is immediate: the next frame is the folded layout, the monitors keep their top and bottom, and
+the rows below the dock do not move. The ids `c0.dock.right.strip.<n>`, `c0.dock.right.panel.<Panel>`,
+`c0.dock.right.unfold` and `c0.dock.right.flyout` are in `ui.elements`; the palette is
+`c0.tools.palette` (grip `c0.tools.palette.move`). Code: `crates/ui-egui/src/c0_host/dock_modes.rs`.
+Tests: `crates/ui-egui/tests/c0_tool_modes.rs`, `c0_right_dock.rs`.
+
+## `ui.render`: the Program frame without presenting a window
+
+`ui.render {sequence?, frame?, scale?}` returns a PNG (`pngBase64`) of a sequence's frame composited
+off screen by FilmCraft's frame server (the software compositor, as Export Frame): no screenshot of the
+window, no presented frame, no window raise. It works while the page is hidden. `sequence` defaults to
+the active sequence, `frame` to its playhead (0 for another sequence) and `scale` to the Program
+monitor's playback resolution. Frames over 64 Mpx are refused; lower `scale`. A frame the server has
+not finished is retried by the control loop (the bridge keeps passing while the page is hidden). It
+reads the project and never edits it. Code: `crates/ui-egui/src/c0_host/render.rs`; tests:
+`crates/ui-egui/tests/c0_render.rs`.
+
 ## Codec policy and browser limits
 
 The `patent-codecs` feature is **on by default** throughout the ordinary native/web dependency
@@ -176,7 +220,7 @@ cooperative; no worker threads are introduced.
 
 ## Verification
 
-Native contract tests are in `crates/ui-egui/tests/c0_host.rs`; native browser-feature transport
+Native contract tests are in `crates/ui-egui/tests/c0_host.rs`, `c0_tool_modes.rs`, `c0_right_dock.rs` and `c0_render.rs`; native browser-feature transport
 tests are in `apps/filmcraft-web/tests/c0_page_control.rs` (K-41). Build with and without
 `patent-codecs` and check the wasm dependency graph as well as artifact sizes.
 

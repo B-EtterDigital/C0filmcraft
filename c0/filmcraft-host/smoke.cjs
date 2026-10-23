@@ -102,6 +102,53 @@ const server=http.createServer((request,response)=>{
     await page.evaluate(()=>{window.__savedRAF=window.requestAnimationFrame;window.__blockedRAF=[];window.requestAnimationFrame=callback=>{window.__blockedRAF.push(callback);return 0;};});
     await page.waitForTimeout(100);
     for(const [method,params] of [['c0.inspect',{}],['c0.documentBytes',{}],['c0.goTo',{sequence,frame:1}],['c0.play',{action:'pause'}],['c0.set',{}],['c0.cancelFileDialog',{}],['c0.newDocument',{}],['c0.openFile',{name:'hidden.fcproj',bytes:bytes.bytes}]])await call(method,params);
+    // Tool modes, the foldable right dock and the frameless render: set, read back and lay out with
+    // animation frames still blocked (a hidden page), so none of it needs a presented frame.
+    {
+      const panes=async()=>(await call('c0.inspect')).panes;
+      const element=async id=>{await call('c0.inspect');await call('c0.inspect');return (await call('ui.elements',{prefix:id})).find(e=>e.id===id);};
+      const sorted=list=>[...list].sort();
+      const start=await panes();
+      assert.deepEqual([start.toolbar,start.toolbar_double,start.toolbar_floating,start.right_dock_collapsed],[true,false,false,false]);
+      assert.equal(start.right_dock,true);assert.deepEqual(start.toolbar_float,{pos:null});
+      assert.equal((await element('panel.Tools')).rect[2],64,'upstream tool column is 64 wide');
+      const timelineDocked=(await element('panel.Timeline')).rect;
+      const modes=[];
+      for(const [double,floating] of [[true,false],[false,true],[true,true],[false,false]]){
+        const reply=await call('c0.set',{panels:{toolbar_double:double,toolbar_floating:floating}});
+        assert.deepEqual(sorted(reply.applied),['panels.toolbar_double','panels.toolbar_floating']);assert.deepEqual(reply.unknown,[]);assert.deepEqual(reply.invalid,[]);
+        const read=await panes();assert.equal(read.toolbar_double,double);assert.equal(read.toolbar_floating,floating);assert.equal(read.toolbar,true);
+        const width=double?84:64;
+        if(floating){assert.equal(await element('panel.Tools'),undefined);assert.equal((await element('c0.tools.palette')).rect[2],width);}
+        else{assert.equal(await element('c0.tools.palette'),undefined);assert.equal((await element('panel.Tools')).rect[2],width);}
+        assert((await element('tools.Razor')).rect[2]===32,'the tools are drawn');
+        modes.push({double,floating,width});
+      }
+      assert.deepEqual((await element('panel.Timeline')).rect,timelineDocked,'back to one docked column is upstream layout');
+      await call('c0.set',{panels:{toolbar:false}});assert.equal((await panes()).toolbar,false);assert.equal(await element('panel.Tools'),undefined);
+      await call('c0.set',{panels:{toolbar:true}});assert.equal((await element('panel.Tools')).rect[2],64);
+      await call('c0.set',{panels:{toolbar_floating:true,toolbar_float:{pos:[200,120]}}});
+      assert.deepEqual((await panes()).toolbar_float,{pos:[200,120]});await call('c0.set',{panels:{toolbar_floating:false,toolbar_float:{pos:null}}});
+      const bad=await call('c0.set',{panels:{toolbar:'x',toolbar_nope:true,right_dock_collapsed:3}});
+      assert.deepEqual(sorted(bad.invalid),['panels.right_dock_collapsed','panels.toolbar']);assert.deepEqual(bad.unknown,['panels.toolbar_nope']);
+      const propertiesBefore=(await element('panel.Properties')).rect;const programBefore=(await element('panel.Program')).rect;
+      await call('c0.set',{panels:{right_dock_collapsed:true}});
+      assert.equal((await panes()).right_dock_collapsed,true);
+      assert.equal((await element('c0.dock.right.strip.0')).rect[2],36);assert.equal(await element('panel.Properties'),undefined);
+      assert((await element('c0.dock.right.panel.Properties'))&&(await element('c0.dock.right.unfold')));
+      const programFolded=(await element('panel.Program')).rect;assert.equal(programFolded[1],programBefore[1]);assert.equal(programFolded[3],programBefore[3]);assert(programFolded[2]>programBefore[2]);
+      await call('c0.set',{panels:{right_dock_collapsed:false}});
+      assert.deepEqual((await element('panel.Properties')).rect,propertiesBefore);assert.deepEqual((await element('panel.Program')).rect,programBefore);
+      // ui.render: a PNG of the Program frame with no presented frame
+      const render=await call('ui.render',{scale:1});
+      const png=Buffer.from(render.pngBase64,'base64');
+      assert.deepEqual([...png.subarray(0,8)],[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
+      assert.equal(png.readUInt32BE(16),render.width);assert.equal(png.readUInt32BE(20),render.height);assert.equal(render.presented,false);assert.equal(render.width,64);
+      fs.writeFileSync(process.env.C0VID_RENDER_PROOF||'/tmp/c0vid-render.png',png);
+      const refused=await request('ui.render',{scale:0});assert.equal(refused.ok,false);
+      const unknownKey=await request('ui.render',{nope:1});assert.equal(unknownKey.ok,false);
+      console.log('TOOL-MODES '+JSON.stringify({modes,rightDock:'folded and unfolded',render:{width:render.width,height:render.height,bytes:png.length}}));
+    }
     await page.evaluate(()=>{window.requestAnimationFrame=window.__savedRAF;window.__blockedRAF.forEach(callback=>window.requestAnimationFrame(callback));});
     await call('engine.execute',{command:'sequence.open',params:{item:sequence}});
     if(process.env.C0VID_MEDIA_FIXTURE){

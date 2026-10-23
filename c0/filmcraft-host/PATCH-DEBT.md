@@ -33,22 +33,24 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/isobmff/src/mux.rs` | +1 / -0 | Declare final presentation-window extension | Browser AAC reveals priming after encoding | no |
 | `crates/platform/Cargo.toml` | +2 / -2 | Explicit native codec defaults | Keep OS codec integrations unchanged | no |
 | `crates/ui-egui/Cargo.toml` | +7 / -1 | Forward codec feature; project serialization/base64 dependencies | Use the app's own file format and host byte contract | no |
-| `crates/ui-egui/src/control.rs` | +1 / -0 | One c0.* dispatch arm | Reuse the existing control queue | no |
+| `crates/ui-egui/src/control.rs` | +2 / -0 | One c0.* dispatch arm; one `ui.render` arm | Reuse the existing control queue | no |
 | `crates/ui-egui/src/credits.rs` | +2 / -2 | Host-aware contributor labels | Keep author credit while removing GitHub links | no |
+| `crates/ui-egui/src/dock_ui.rs` | +13 / -2 | `panel_body` is `pub(crate)`; `dock_area` lays out a host view of the tree when a tool-mode or right-dock switch is set, takes folded groups out, settles gutter actions, draws the strips and the palette | The tool modes and the foldable right dock are views of the dock; at default values `view` is `None` and the real tree is laid out as before | no |
 | `crates/ui-egui/src/header.rs` | +15 / -13 | Read Home/community/menu switches | Hide host-owned and promotional chrome | no |
-| `crates/ui-egui/src/lib.rs` | +10 / -5 | Host state and narrow theme/chrome/dialog seams | Nonpersisted default-on switches and runtime host palette | no |
+| `crates/ui-egui/src/lib.rs` | +11 / -6 | Host state and narrow theme/chrome/dialog seams; no window raise for `ui.render` | Nonpersisted default-on switches and runtime host palette; the frameless render must not present a window | no |
 | `crates/ui-egui/src/links.rs` | +3 / -0 | Suppress host-hidden community URLs | Cover direct opener calls as well as visible widgets | no |
 | `crates/ui-egui/src/menus.rs` | +2 / -0 | Host command guard and menu filtering | Remove all promotional link entries and refuse direct invocation | no |
 | `crates/ui-egui/src/panels/dialogs.rs` | +5 / -0 | Community state for credits and hosted About branch | Keep authors/licence, remove promotions and trademark mark | no |
 | `crates/ui-egui/src/panels/import_mode.rs` | +3 / -0 | Community draw guard | Hide Home promotions and ArtCraft mark | no |
+| `crates/ui-egui/src/panels/tools.rs` | +4 / -3 | Button column and row advance come from `c0_host::dock_modes` (`columns`, `column_x`, `advance`) | Two tool columns; one column is bit-for-bit upstream's centred column | yes, as a general column count |
 | `crates/ui-egui/src/theme.rs` | +1 / -0 | Declare host palette module | Expose the context-local colour override | no |
 | `xtask/src/main.rs` | +6 / -0 | Forward opt-in page-control/no-default-features arguments | Build via upstream's own cargo/wasm-bindgen pipeline | no |
 
-Total: 259 added lines, 63 removed lines in 38 upstream files.
-Ratchet: 259
+Total: 278 added lines, 69 removed lines in 40 upstream files.
+Ratchet: 278
 
 Measurement: `git diff --numstat --diff-filter=M main c0/main -- . ':!c0'`.
-The 70-line target is exceeded. The codec feature must propagate through the existing dependency
+The 70-line target is exceeded (it already was, at 259, before the tool-mode lane; that lane added 19 lines in `dock_ui.rs`, `tools.rs`, `control.rs` and `lib.rs`, all else being in new files: `c0_host/dock_modes.rs`, `c0_host/render.rs`, `c0_host/panels.rs`). The codec feature must propagate through the existing dependency
 graph; browser encoding also needs cooperative completion and final mux timing. The pending-audio
 fixes are generic wasm fixes and are marked for offering upstream as is. No upstream code is
 removed from the default feature configuration.
