@@ -1,8 +1,10 @@
 //! C0vid guest contract. Presentation switches are session-local and default to upstream.
 
+pub mod dock_modes;
 pub mod files;
 mod limits;
 mod panels;
+pub mod render;
 pub use limits::{MAX_FILE_BYTES, MAX_NAME_BYTES, MAX_REQUEST_BYTES};
 
 use crate::{FilmcraftApp, control::Outcome};
@@ -31,6 +33,7 @@ impl Default for Chrome {
 #[derive(Default)]
 pub struct Host {
     pub chrome: Chrome,
+    pub dock: dock_modes::Modes,
     pub pending: Option<files::Pending>,
 }
 

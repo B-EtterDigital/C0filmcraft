@@ -11,13 +11,14 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let t = app.tokens;
     let mut y = rect.min.y + 4.0;
     let size = 32.0;
+    let columns = crate::c0_host::dock_modes::columns(app, rect);
     let held_id = egui::Id::new("tools-held");
     if ui.input(|i| i.pointer.any_pressed()) {
         ui.data_mut(|d| d.remove::<egui::Id>(held_id));
     }
-    for group in Tool::groups() {
+    for (index, group) in Tool::groups().into_iter().enumerate() {
         let current = if group.contains(&app.ui.tool) { app.ui.tool } else { group[0] };
-        let r = Rect::from_min_size(pos2(rect.center().x - size / 2.0, y), vec2(size, size));
+        let r = Rect::from_min_size(pos2(crate::c0_host::dock_modes::column_x(rect, index, columns, size), y), vec2(size, size));
         let tip = if current.shortcut().is_empty() {
             app.ui.language.tr(current.label()).to_owned()
         } else {
@@ -85,7 +86,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
                 }
             });
         }
-        y += size + 4.0;
+        y += crate::c0_host::dock_modes::advance(index, columns, size + 4.0);
         if y > rect.max.y - size {
             break;
         }

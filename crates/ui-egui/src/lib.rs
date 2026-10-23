@@ -1655,7 +1655,7 @@ impl FilmcraftApp {
         while let Ok(req) = rx.try_recv() {
             // UI requests need rendered frames: raise the window if `ui` hasn't run recently
             // (occluded macOS windows stop running `ui`).
-            if req.method.starts_with("ui.") && now - self.last_ui_time > 0.25 {
+            if req.method.starts_with("ui.") && req.method != "ui.render" && now - self.last_ui_time > 0.25 {
                 self.raise_for_control(ctx);
             }
             reqs.push((req, now + 3.0));

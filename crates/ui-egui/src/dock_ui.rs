@@ -141,7 +141,7 @@ impl FilmcraftApp {
         Ok(())
     }
 
-    fn panel_body(&mut self, ui: &mut egui::Ui, panel: PanelKind, content: Rect) {
+    pub(crate) fn panel_body(&mut self, ui: &mut egui::Ui, panel: PanelKind, content: Rect) {
         self.auto.add(&format!("panel.{}", panel.id()), content, panel.title());
         let mut child = ui.new_child(egui::UiBuilder::new().max_rect(content).id_salt(("panel", panel.id())));
         child.set_clip_rect(content.intersect(ui.clip_rect()));
@@ -203,7 +203,12 @@ impl FilmcraftApp {
         };
         let mut groups = vec![];
         let mut layout_actions = Vec::new();
-        dock::layout_with_actions(ui, &mut dock, body, &t, "", &mut groups, &mut self.auto, &mut layout_actions);
+        let mut c0 = maximized.is_none().then(|| crate::c0_host::dock_modes::view(self, &dock)).flatten();
+        dock::layout_with_actions(ui, c0.as_mut().map_or(&mut dock, |view| &mut view.tree), body, &t, "", &mut groups, &mut self.auto, &mut layout_actions);
+        let c0_strips = c0.as_ref().map(|view| {
+            view.settle(&mut layout_actions);
+            view.take_strips(&mut groups)
+        });
         let seqs = dock::SeqTabs {
             open: self
                 .session
@@ -239,6 +244,12 @@ impl FilmcraftApp {
         }
         for group in &groups {
             dock::paint_group_focus(ui, group, self.ui.focused, &t);
+        }
+        if let Some(strips) = &c0_strips {
+            crate::c0_host::dock_modes::strips(self, ui, strips, body);
+        }
+        if c0.as_ref().is_some_and(|view| view.palette()) {
+            crate::c0_host::dock_modes::palette(self, ui, body, crate::c0_host::dock_modes::program_content(&groups));
         }
         let floating_order = self.floating_order(&ctx);
         for index in floating_order.into_iter().filter(|_| maximized.is_none()) {
