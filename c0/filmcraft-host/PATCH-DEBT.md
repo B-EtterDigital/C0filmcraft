@@ -5,8 +5,8 @@ and c0 tests are additions rather than upstream patch debt.
 
 | File | Lines | What | Why | Offered upstream |
 |---|---:|---|---|---|
-| `Cargo.lock` | +3 / -0 | Lock host serialization/browser export dependency wiring | Keep builds reproducible | no |
-| `Cargo.toml` | +4 / -4 | Disable inherited codec defaults at dependency seams | Allow the page to select a codec-free graph | no |
+| `Cargo.lock` | +4 / -1 | Lock host serialization/browser export dependency wiring; craft-media from our C0craft-libs fork | Keep builds reproducible | no |
+| `Cargo.toml` | +7 / -4 | Disable inherited codec defaults at dependency seams; `[patch]` craft-media to B-EtterDigital/C0craft-libs (the presentation-window hook moved there with the muxer, 2026-10-25) | Allow the page to select a codec-free graph | no |
 | `apps/filmcraft-cli/Cargo.toml` | +3 / -3 | Explicit native dependency defaults | Keep CLI behaviour unchanged | no |
 | `apps/filmcraft-web/Cargo.toml` | +9 / -0 | Page feature, codec forwarding, native transport test deps, export interface | Reuse the existing web binary and pass K-41 | no |
 | `apps/filmcraft-web/src/import.rs` | +16 / -0 | Guard project replacement and invalidate late picker results | Protect unsaved work and implement cancellation in the guest | no |
@@ -30,7 +30,6 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/export/src/lib.rs` | +41 / -5 | Feature boundary, default fallback, encoder readiness and pending-audio guard | Exclude codecs, finish browser output, and reject truncated synchronous exports | mixed: pending-audio guard yes, as is; host feature/hooks no |
 | `crates/export/src/presets.rs` | +2 / -2 | Choose a codec-free default preset when feature is off | Quick Export defaults to a format that exists | no |
 | `crates/gpu/Cargo.toml` | +1 / -1 | Explicit test dependency defaults | Keep isolated GPU tests unchanged | no |
-| `crates/isobmff/src/mux.rs` | +1 / -0 | Declare final presentation-window extension | Browser AAC reveals priming after encoding | no |
 | `crates/platform/Cargo.toml` | +2 / -2 | Explicit native codec defaults | Keep OS codec integrations unchanged | no |
 | `crates/ui-egui/Cargo.toml` | +7 / -1 | Forward codec feature; project serialization/base64 dependencies | Use the app's own file format and host byte contract | no |
 | `crates/ui-egui/src/control.rs` | +2 / -0 | One c0.* dispatch arm; one `ui.render` arm | Reuse the existing control queue | no |
@@ -46,8 +45,8 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/ui-egui/src/theme.rs` | +1 / -0 | Declare host palette module | Expose the context-local colour override | no |
 | `xtask/src/main.rs` | +6 / -0 | Forward opt-in page-control/no-default-features arguments | Build via upstream's own cargo/wasm-bindgen pipeline | no |
 
-Total: 278 added lines, 69 removed lines in 40 upstream files.
-Ratchet: 278
+Total: 281 added lines in 39 upstream files (measured 2026-10-25: +3 [patch] in Cargo.toml, +1 lock line, -1 mux.rs, which upstream moved into craft-media).
+Ratchet: 281
 
 Measurement: `git diff --numstat --diff-filter=M main c0/main -- . ':!c0'`.
 The 70-line target is exceeded (it already was, at 259, before the tool-mode lane; that lane added 19 lines in `dock_ui.rs`, `tools.rs`, `control.rs` and `lib.rs`, all else being in new files: `c0_host/dock_modes.rs`, `c0_host/render.rs`, `c0_host/panels.rs`). The codec feature must propagate through the existing dependency
