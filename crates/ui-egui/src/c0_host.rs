@@ -1,5 +1,6 @@
 //! C0vid guest contract. Presentation switches are session-local and default to upstream.
 
+pub mod ai;
 pub mod dock_modes;
 pub mod files;
 mod limits;
@@ -12,7 +13,7 @@ use filmcraft_project::{Bin, BinEntry, ItemId};
 use serde_json::{Value, json};
 
 const MAX_INSPECT_BINS: usize = 100_000;
-pub const METHODS: &[&str] = &["c0.inspect", "c0.goTo", "c0.play", "c0.documentBytes", "c0.openFile", "c0.newDocument", "c0.cancelFileDialog", "c0.set"];
+pub const METHODS: &[&str] = &["c0.inspect", "c0.goTo", "c0.play", "c0.documentBytes", "c0.openFile", "c0.newDocument", "c0.cancelFileDialog", "c0.set", "c0.selection", "c0.place"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Chrome {
@@ -38,6 +39,16 @@ pub struct Host {
 }
 
 pub fn handle(app: &mut FilmcraftApp, ctx: &egui::Context, method: &str, params: &Value) -> Outcome {
+    if method == "c0.selection" {
+        // The program frame renders off the UI thread: ask again until it is ready, as `ui.render` does.
+        let result = if params.is_object() { ai::selection(app) } else { Err("params must be an object".into()) };
+        ctx.request_repaint();
+        return match result {
+            Ok(Some(value)) => Outcome::Done(json!({"ok":true,"result":value})),
+            Ok(None) => Outcome::Retry("the frame is still rendering; retry c0.selection".into()),
+            Err(error) => Outcome::Done(json!({"ok":false,"error":error})),
+        };
+    }
     let result = dispatch(app, ctx, method, params);
     if result.is_ok() && !matches!(method, "c0.inspect" | "c0.documentBytes") {
         ctx.request_repaint();
@@ -84,6 +95,7 @@ fn dispatch(app: &mut FilmcraftApp, ctx: &egui::Context, method: &str, params: &
         "c0.newDocument" => files::new_document(app, params),
         "c0.cancelFileDialog" => Ok(json!({"cancelled":files::cancel(app)})),
         "c0.set" => panels::set(app, ctx, params),
+        "c0.place" => ai::place(app, params),
         _ => Err(format!("unknown host method {method}")),
     }
 }
