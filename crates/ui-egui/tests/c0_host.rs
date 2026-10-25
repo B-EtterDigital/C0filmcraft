@@ -153,7 +153,7 @@ fn community_disabled_removes_every_link_and_keeps_about_and_commands() {
     for mode in [filmcraft_ui_egui::state::Mode::Import, filmcraft_ui_egui::state::Mode::Edit] {
         app.ui.mode = mode;
         app.auto.begin_frame();
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
             filmcraft_ui_egui::header::show(&mut app, ui, egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 38.0)));
             if mode == filmcraft_ui_egui::state::Mode::Import {
                 filmcraft_ui_egui::panels::import_mode::show(&mut app, ui, egui::Rect::from_min_size(egui::pos2(0.0, 40.0), egui::vec2(1400.0, 800.0)));
@@ -161,6 +161,7 @@ fn community_disabled_removes_every_link_and_keeps_about_and_commands() {
             app.dialog = Some(filmcraft_ui_egui::Dialog::About);
             filmcraft_ui_egui::panels::dialogs::show(&mut app, ui.ctx());
         });
+        out.textures_delta.clear();
         assert!(!app.auto.elements.iter().any(|e| e.id == "header.discord"
             || e.id.starts_with("import.link.")
             || e.id.starts_with("about.discord")
