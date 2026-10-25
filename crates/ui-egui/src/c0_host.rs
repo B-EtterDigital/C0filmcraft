@@ -186,7 +186,7 @@ pub(crate) fn about(ui: &mut egui::Ui) {
 }
 
 pub(crate) fn community_key() -> egui::Id {
-    egui::Id::new("filmcraft-host-community")
+    egui::Id::unique("filmcraft-host-community")
 }
 pub(crate) fn contributor(ui: &mut egui::Ui, contributor: &crate::credits::Contributor, names: crate::credits::NameMode) {
     if ui.ctx().data(|data| data.get_temp::<bool>(community_key())).unwrap_or(true) {

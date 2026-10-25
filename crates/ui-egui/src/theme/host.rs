@@ -11,7 +11,7 @@ pub struct Report {
     pub invalid: Vec<String>,
 }
 fn key() -> egui::Id {
-    egui::Id::new("filmcraft-host-colors")
+    egui::Id::unique("filmcraft-host-colors")
 }
 pub fn set(ctx: &egui::Context, value: &Value, mut report: Report) -> Result<Report, String> {
     let entries = match value {

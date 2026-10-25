@@ -183,7 +183,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     }
     let mut action = None;
     egui::Window::new("Save changes to the current project?")
-        .id(egui::Id::new("c0-unsaved"))
+        .id(egui::Id::unique("c0-unsaved"))
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)

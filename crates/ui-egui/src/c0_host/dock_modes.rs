@@ -335,7 +335,7 @@ pub fn palette(app: &mut FilmcraftApp, ui: &mut egui::Ui, body: Rect, program: O
         None => program.map_or(body.min + vec2(12.0, 12.0), |monitor| monitor.min + vec2(10.0, 10.0)),
     };
     let pos = clamp_to(body, size, wanted);
-    let id = egui::Id::new("c0-tools-palette");
+    let id = egui::Id::unique("c0-tools-palette");
     let mut moved = None;
     egui::Area::new(id).order(egui::Order::Middle).fixed_pos(pos).constrain(false).interactable(true).show(&ctx, |ui| {
         let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
@@ -343,7 +343,7 @@ pub fn palette(app: &mut FilmcraftApp, ui: &mut egui::Ui, body: Rect, program: O
         ui.painter().rect_filled(rect, t.radius, t.panel_bg);
         let grip = Rect::from_min_size(rect.min, vec2(rect.width(), GRIP_H));
         let response = ui.interact(grip, id.with("move"), Sense::drag());
-        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, response.enabled(), "Move tools"));
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, response.enabled(), "Move tools"));
         app.auto.add_response("c0.tools.palette.move", &response, "Move tools");
         let dots = pos2(rect.center().x, rect.min.y + GRIP_H / 2.0);
         for dx in [-4.0, 0.0, 4.0] {
@@ -402,8 +402,8 @@ pub fn strips(app: &mut FilmcraftApp, ui: &mut egui::Ui, strips: &[Group], body:
         let mut y = rect.min.y + 4.0;
         if index == 0 {
             let button = Rect::from_min_size(pos2(rect.center().x - STRIP_BUTTON / 2.0, y), vec2(STRIP_BUTTON, STRIP_BUTTON));
-            let response = ui.interact(button, egui::Id::new("c0-dock-unfold"), Sense::click()).on_hover_text(crate::i18n::t("Unfold"));
-            response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, response.enabled(), "Unfold"));
+            let response = ui.interact(button, egui::Id::unique("c0-dock-unfold"), Sense::click()).on_hover_text(crate::i18n::t("Unfold"));
+            response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, response.enabled(), "Unfold"));
             app.auto.add_response("c0.dock.right.unfold", &response, "Unfold");
             if response.hovered() {
                 ui.painter().rect_filled(button, 4.0, t.hover);
@@ -420,9 +420,9 @@ pub fn strips(app: &mut FilmcraftApp, ui: &mut egui::Ui, strips: &[Group], body:
                 break;
             }
             let button = Rect::from_min_size(pos2(rect.center().x - STRIP_BUTTON / 2.0, y), vec2(STRIP_BUTTON, STRIP_BUTTON));
-            let response = ui.interact(button, egui::Id::new(("c0-dock-strip", panel.id())), Sense::click()).on_hover_text(crate::i18n::t(panel.title()));
+            let response = ui.interact(button, egui::Id::unique(("c0-dock-strip", panel.id())), Sense::click()).on_hover_text(crate::i18n::t(panel.title()));
             let open = app.c0.dock.flyout == Some(*panel);
-            response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, response.enabled(), open, panel.title()));
+            response.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, response.enabled(), open, panel.title()));
             app.auto.add_response(&format!("c0.dock.right.panel.{}", panel.id()), &response, panel.title());
             if open {
                 ui.painter().rect_filled(button, 4.0, t.accent);
@@ -455,7 +455,7 @@ fn flyout(app: &mut FilmcraftApp, ctx: &egui::Context, strips: &[Group], body: R
     let t = app.tokens;
     let width = FLYOUT_MIN_W.max(body.width() * 0.3).min(body.width() * 0.6).min(group.rect.min.x - body.min.x).max(0.0);
     let rect = Rect::from_min_max(pos2(group.rect.min.x - width, group.rect.min.y), pos2(group.rect.min.x - 2.0, group.rect.max.y));
-    let id = egui::Id::new("c0-dock-flyout");
+    let id = egui::Id::unique("c0-dock-flyout");
     egui::Area::new(id).order(egui::Order::Middle).fixed_pos(rect.min).constrain(false).interactable(true).show(ctx, |ui| {
         let (rect, _) = ui.allocate_exact_size(rect.size(), Sense::hover());
         app.auto.add("c0.dock.right.flyout", rect, panel.title());

@@ -47,6 +47,7 @@ and c0 tests are additions rather than upstream patch debt.
 
 Total: 281 added lines in 39 upstream files (measured 2026-10-25: +3 [patch] in Cargo.toml, +1 lock line, -1 mux.rs, which upstream moved into craft-media).
 Ratchet: 281
+Re-measured 2026-10-26 after the upstream merge (egui 0.37 port, update prompt): 281, unchanged file for file. Our header Home gate, status-bar gate, tool columns and the craft-media [patch] were kept; upstream dropped its own no-status-bar job poll (it polls every frame now), so that line left with it, not with us.
 
 Measurement: `git diff --numstat --diff-filter=M main c0/main -- . ':!c0'`.
 The 70-line target is exceeded (it already was, at 259, before the tool-mode lane; that lane added 19 lines in `dock_ui.rs`, `tools.rs`, `control.rs` and `lib.rs`, all else being in new files: `c0_host/dock_modes.rs`, `c0_host/render.rs`, `c0_host/panels.rs`). The codec feature must propagate through the existing dependency
