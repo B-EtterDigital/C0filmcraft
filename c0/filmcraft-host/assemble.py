@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import tempfile
@@ -25,7 +26,11 @@ with tempfile.TemporaryDirectory(prefix="c0host-stage-", dir=dist.parent) as sta
     stage = Path(staging)
     if (source / "snippets").is_dir():
         shutil.copytree(source / "snippets", stage / f"snippets.{build}")
-    glue = (source / "filmcraft_web.js").read_text().replace("./snippets/", f"./snippets.{build}/")
+    # Only the module specifiers move to the build folder. The import-table keys must keep the names compiled into
+    # the wasm: eframe 0.37 brings an inline snippet the wasm imports as ./snippets/..., and renaming that key broke
+    # instantiation ("Import #32 ... module is not an object or function", 2026-10-26).
+    glue = re.sub(r"""(from\s*['"]|import\(\s*['"])\./snippets/""", lambda m: f"{m.group(1)}./snippets.{build}/",
+                  (source / "filmcraft_web.js").read_text())
     (stage / f"filmcraft_web.{build}.js").write_text(glue)
     shutil.copy2(source / "filmcraft_web_bg.wasm", stage / f"filmcraft_web_bg.{build}.wasm")
     shutil.copy2(source / "audio-worklet.js", stage / "audio-worklet.js")
