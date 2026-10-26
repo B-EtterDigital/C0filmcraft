@@ -64,6 +64,10 @@ fn render(app: &mut FilmcraftApp, params: &Value) -> Result<Option<Value>, Strin
         return Ok(None);
     };
     let (w, h) = (u32::try_from(image.w).map_err(|e| e.to_string())?, u32::try_from(image.h).map_err(|e| e.to_string())?);
-    let png = control::encode_png(&image.px, w, h)?;
+    // The cache keeps each pixels alpha since upstreams Transparency Grid (the colour bytes are
+    // already over black); the Program monitor uploads its frame opaque by default, and so does this.
+    let mut px = image.px.clone();
+    px.chunks_exact_mut(4).for_each(|p| p[3] = 255);
+    let png = control::encode_png(&px, w, h)?;
     Ok(Some(json!({"pngBase64":control::base64(&png),"width":w,"height":h,"sequence":id.0,"frame":frame,"scale":scale,"presented":false})))
 }
