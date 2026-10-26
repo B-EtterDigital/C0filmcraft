@@ -94,6 +94,8 @@ pub struct WebApp {
 impl eframe::App for WebApp {
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
         self.app.raw_input_hook(ctx, raw_input);
+        #[cfg(feature = "page-control")]
+        page_control::lend_ui_pass(raw_input);
     }
 
     /// Hidden logic pass: host actions, app logic, API replies, jobs, audio, autosave, then IME reset; it does not draw UI.

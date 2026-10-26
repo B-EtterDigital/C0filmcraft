@@ -35,6 +35,22 @@ pub fn parse(text: &str) -> Result<(String, Value), String> {
     Ok((method.into(), params))
 }
 
+/// Whether the app answers `method` only at the end of a UI pass. Since the egui 0.37 port the app
+/// queues every `ui.*` request except `ui.screenshot` for the next UI pass, and a hidden page's
+/// runner runs logic-only passes, so the bridge lends these requests a UI pass (`lend_ui_pass`).
+pub fn needs_ui_pass(method: &str) -> bool {
+    method.starts_with("ui.") && method != "ui.screenshot"
+}
+
+/// Extra passes run inside the call after the first one. Synthetic input plays one step a pass.
+/// Any other UI-pass request is answered in the first pass and its page promise is settled by the
+/// app's reply poll in the next one; the third covers a pass egui discarded.
 pub fn inline_passes(method: &str) -> usize {
-    if matches!(method, "ui.click" | "ui.move" | "ui.drag" | "ui.key" | "ui.type") { 40 } else { 0 }
+    if matches!(method, "ui.click" | "ui.move" | "ui.drag" | "ui.key" | "ui.type") {
+        40
+    } else if needs_ui_pass(method) {
+        2
+    } else {
+        0
+    }
 }

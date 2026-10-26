@@ -22,3 +22,16 @@ fn request_limits_and_input_counts_are_bounded() {
         }
     }
 }
+
+#[test]
+fn ui_requests_get_a_lent_ui_pass_and_settle_inside_the_call() {
+    // The host start chain: c0.inspect -> c0.set {panels} -> ui.set {theme} -> c0.set {themeTokens}.
+    for method in ["ui.set", "ui.render", "ui.elements", "ui.panel.show", "ui.click"] {
+        assert!(page_control::needs_ui_pass(method), "{method}");
+        assert!(page_control::inline_passes(method) >= 2, "{method}: answer pass plus reply-poll pass");
+    }
+    for method in ["c0.inspect", "c0.set", "ui.screenshot", "engine.execute"] {
+        assert!(!page_control::needs_ui_pass(method), "{method}");
+    }
+    assert_eq!(page_control::inline_passes("c0.set"), 0);
+}

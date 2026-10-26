@@ -4,7 +4,8 @@ use wasm_bindgen::{JsCast as _, prelude::*};
 use wasm_bindgen_futures::{JsFuture, future_to_promise};
 
 /// Reuse the browser API's sender, promise/error handling and reply polling. The event target
-/// lends the same unpresented egui pass used by the other Craft guest pages.
+/// lends the same unpresented egui pass used by the other Craft guest pages; for `ui.*` requests
+/// that pass is a UI pass even while the page is hidden (`super::lend_ui_pass`).
 pub async fn attach(runner: &eframe::WebRunner) -> Result<(), JsValue> {
     #[cfg(not(feature = "patent-codecs"))]
     super::codecs::install().await;
@@ -31,11 +32,15 @@ pub async fn attach(runner: &eframe::WebRunner) -> Result<(), JsValue> {
             Err(error) => return reply_error(message(error)),
         };
         ran.set(false);
+        // `ui.*` requests are answered at the end of a UI pass: lend one to a hidden page.
+        let lend = super::needs_ui_pass(&method);
         if let Ok(event) = web_sys::Event::new("filmcraft-control-pass") {
-            let _ = target.dispatch_event(&event);
-            for _ in 0..super::inline_passes(&method) {
+            super::lending_ui_pass(lend, || {
                 let _ = target.dispatch_event(&event);
-            }
+                for _ in 0..super::inline_passes(&method) {
+                    let _ = target.dispatch_event(&event);
+                }
+            });
         }
         // Hidden tabs do not get animation frames. One queued event pass must have run now.
         if !ran.get() {
@@ -45,7 +50,7 @@ pub async fn attach(runner: &eframe::WebRunner) -> Result<(), JsValue> {
         future_to_promise(async move {
             let pump = Closure::<dyn FnMut()>::new(move || {
                 if let Ok(event) = web_sys::Event::new("filmcraft-control-pass") {
-                    let _ = pump_target.dispatch_event(&event);
+                    let _ = super::lending_ui_pass(lend, || pump_target.dispatch_event(&event));
                 }
             });
             let interval =
