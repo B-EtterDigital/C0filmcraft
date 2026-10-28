@@ -134,7 +134,7 @@ fn floating_draws_the_same_tools_in_a_palette_and_frees_the_dock_column() {
     assert!(buttons.iter().all(|button| palette.contains_rect(*button)));
     // the app's layout was never touched: nothing in it, in the floating list or in a saved workspace changed
     assert_eq!(h.state().ui.dock, before);
-    assert!(h.state().ui.floating.is_empty());
+    assert!(h.state().ui.dock.floating.is_empty());
     // docked again: everything as at the start
     set_panels(&mut h, json!({"toolbar_floating": false, "toolbar_double": false}));
     assert!(rect(&h, "c0.tools.palette").is_none());
@@ -227,9 +227,9 @@ fn modes_are_not_saved_with_a_workspace() {
     filmcraft_ui_egui::menus::invoke(h.state_mut(), &ctx, "window.workspace.saveAs", json!({"name": "Modes"})).expect("save the workspace");
     let prefs = dock::WorkspacePrefs::load(&dir.join(dock::WORKSPACES_FILE));
     let saved = dock::saved_docking(&prefs, "Modes");
-    assert_eq!(saved.root, before, "the saved layout still has the docked Tools column");
+    assert_eq!(saved, before, "the saved layout still has the docked Tools column");
     assert!(saved.floating.is_empty());
-    assert!(saved.root.contains(dock::PanelKind::Tools));
+    assert!(saved.contains(&dock::PanelKind::Tools));
     let text = std::fs::read_to_string(dir.join(dock::WORKSPACES_FILE)).expect("read the workspaces file");
     assert!(!text.contains("toolbar"), "no mode in the file");
     let preferences = std::fs::read_to_string(dir.join("preferences.json")).unwrap_or_default();

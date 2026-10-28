@@ -5,6 +5,7 @@
 mod c0_support;
 
 use c0_support::*;
+use craft_ui::docking::Action;
 use egui::{Event, Key, Modifiers};
 use filmcraft_ui_egui::c0_host::dock_modes::{self, STRIP_W};
 use filmcraft_ui_egui::dock::{self, PanelKind};
@@ -126,7 +127,7 @@ fn the_unfold_button_and_the_host_switch_unfold_and_the_icon_chose_the_visible_t
     assert!(!collapsed(&mut h), "the strip's own button unfolds, and the host reads it back");
     assert!(rect(&h, "c0.dock.right.strip.0").is_none() && rect(&h, "c0.dock.right.flyout").is_none());
     assert!(rect(&h, "panel.Text").is_some(), "the panel whose icon was used is the one the dock shows");
-    assert!(h.state().ui.dock.contains(PanelKind::Properties) && h.state().ui.dock.contains(PanelKind::Text));
+    assert!(h.state().ui.dock.contains(&PanelKind::Properties) && h.state().ui.dock.contains(&PanelKind::Text));
     assert_ne!(h.state().ui.dock, dock, "only the active tab differs");
     set_panels(&mut h, json!({"right_dock_collapsed": true}));
     click(&mut h, "c0.dock.right.panel.Properties");
@@ -169,8 +170,8 @@ fn folding_never_changes_the_saved_layout_even_with_the_tools_floating() {
     set_panels(&mut h, json!({"right_dock_collapsed": false, "toolbar_floating": false}));
     let mut after = h.state().ui.dock.clone();
     // the click on the icon made Properties the active tab; that is the only difference allowed
-    assert!(after.activate(PanelKind::Properties));
+    assert!(after.apply(Action::Activate { panel: PanelKind::Properties }).is_ok());
     let mut expected = before;
-    assert!(expected.activate(PanelKind::Properties));
+    assert!(expected.apply(Action::Activate { panel: PanelKind::Properties }).is_ok());
     assert_eq!(after, expected);
 }

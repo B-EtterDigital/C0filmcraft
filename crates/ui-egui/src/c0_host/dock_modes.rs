@@ -1,33 +1,35 @@
 //! Tool-strip modes and the foldable right dock of the C0vid guest.
 //!
-//! Both are *views* of the dock tree. The tree the user edits, saves in a workspace and restores is
-//! never changed: [`view`] clones it, applies the host's switches to the clone, and the dock lays
-//! out the clone. At default switch values [`view`] returns `None` and the dock is upstream's.
+//! Both are *views* of the dock layout. The layout the user edits, saves in a workspace and restores
+//! is never changed: [`view`] clones it, applies the host's switches to the clone, and the dock draws
+//! the clone. At default switch values [`view`] returns `None` and the dock is upstream's.
 //!
 //! * Tools panel (Premiere's tools): docked in one column (upstream: 64 pt), docked in two
 //!   columns, floating in one column or two, or hidden (`toolbar: false`). Floating draws the same
 //!   [`crate::panels::tools::show`] in a palette the user can move by its grip.
-//! * Right dock: the rightmost column of panels that holds none of the editing monitors or the
-//!   Timeline (Properties, Lumetri, Essential Graphics...). Folded, each of its groups narrows to an
-//!   icon strip; an icon opens its panel in a flyout over the canvas, so nothing else moves.
+//! * Right dock: the rightmost split whose second child holds only dock panels (Properties, Lumetri,
+//!   Essential Graphics...), never a canvas panel. Folded, that child is 36 pt wide, and each of its
+//!   groups is drawn as an icon strip over its own rectangle; an icon opens its panel in a flyout over
+//!   the canvas, so nothing else moves.
 
-use craft_ui::docking::Action;
+use craft_ui::docking::{Action, Layout, Node};
+use craft_ui::layout::{SplitAxis, SplitSize};
 use egui::{Align2, Rect, Sense, Stroke, StrokeKind, Vec2, pos2, vec2};
 use serde_json::Value;
 
 use crate::FilmcraftApp;
-use crate::dock::{DockNode, Group, PanelKind, SplitSize};
+use crate::dock::PanelKind;
 use crate::icons::{self, Icon};
 
 /// Side of a tool button, as upstream's Tools panel.
 pub const TOOL_SIZE: f32 = 32.0;
 /// Space between tool buttons, as upstream's Tools panel.
 const TOOL_GAP: f32 = 4.0;
-/// Upstream's Tools column (the factory workspaces' `FixedA(64.0)`).
+/// Upstream's Tools column (the factory workspaces' `FixedFirst(64.0)`).
 pub const SINGLE_W: f32 = 64.0;
 /// Two tool columns: two buttons, the gap and a margin of 8 pt on both sides.
 pub const DOUBLE_W: f32 = 84.0;
-/// A folded dock group.
+/// A folded right dock.
 pub const STRIP_W: f32 = 36.0;
 /// Height of the palette's grip, as a compact docked panel's.
 const GRIP_H: f32 = 8.0;
@@ -128,35 +130,43 @@ pub fn advance(index: usize, columns: usize, pitch: f32) -> f32 {
     if (index + 1).is_multiple_of(columns.max(1)) { pitch } else { 0.0 }
 }
 
-// ---------------------------------------------------------------- the dock tree's view
+// ---------------------------------------------------------------- the layout's view
 
-/// The dock tree as the host wants it drawn, and what the dock needs to undo the difference.
+/// The layout as the host wants it drawn, and what the dock needs to undo the difference.
 pub struct View {
-    /// The tree to lay out instead of the real one.
-    pub tree: DockNode,
-    /// Gutters (paths in `tree`) that must not resize the real tree.
+    /// The layout to draw instead of the real one.
+    pub layout: Layout<PanelKind>,
+    /// Splits (paths in `layout`) whose gutters must not resize the real layout.
     inert: Vec<Vec<bool>>,
-    /// Where the Tools split was dropped from `tree`: its path, and whether the second child stayed.
+    /// Where the Tools split was dropped from the real layout: its path, and whether the second
+    /// child stayed.
     removed: Option<(Vec<bool>, bool)>,
     /// The palette is drawn: the Tools panel is floating, not hidden.
     palette: bool,
-    /// Layout paths (as [`crate::dock::Group::path`]) of the folded groups.
-    strips: Vec<String>,
-    /// The size of the right dock before it was folded.
-    unfolded: Option<SplitSize>,
+    /// Each folded group of the right dock, as its panels in tab order.
+    pub folded: Vec<Vec<PanelKind>>,
+    /// The folded right dock's split, in `layout`.
+    fold: Option<Vec<bool>>,
 }
 
-fn lone_tools(node: &DockNode) -> bool {
-    matches!(node, DockNode::Tabs { panels, .. } if panels.as_slice() == [PanelKind::Tools])
+/// A folded group's strip as drawn this frame.
+#[derive(Clone, Debug)]
+pub struct Strip {
+    pub panels: Vec<PanelKind>,
+    pub rect: Rect,
+}
+
+fn lone_tools(node: &Node<PanelKind>) -> bool {
+    matches!(node, Node::Tabs { panels, .. } if panels.as_slice() == [PanelKind::Tools])
 }
 
 /// The path of the split that has the Tools panel alone in one of its two children.
-fn tools_split(node: &DockNode, path: &mut Vec<bool>) -> Option<Vec<bool>> {
-    let DockNode::Split { a, b, .. } = node else { return None };
-    if lone_tools(a) || lone_tools(b) {
+fn tools_split(node: &Node<PanelKind>, path: &mut Vec<bool>) -> Option<Vec<bool>> {
+    let Node::Split { first, second, .. } = node else { return None };
+    if lone_tools(first) || lone_tools(second) {
         return Some(path.clone());
     }
-    for (side, child) in [(false, a), (true, b)] {
+    for (side, child) in [(false, first), (true, second)] {
         path.push(side);
         let found = tools_split(child, path);
         path.pop();
@@ -167,32 +177,35 @@ fn tools_split(node: &DockNode, path: &mut Vec<bool>) -> Option<Vec<bool>> {
     None
 }
 
-fn node_at_mut<'a>(node: &'a mut DockNode, path: &[bool]) -> Option<&'a mut DockNode> {
+fn node_at_mut<'a>(node: &'a mut Node<PanelKind>, path: &[bool]) -> Option<&'a mut Node<PanelKind>> {
     let Some((side, rest)) = path.split_first() else { return Some(node) };
     match node {
-        DockNode::Split { a, b, .. } => node_at_mut(if *side { b } else { a }, rest),
-        DockNode::Tabs { .. } => None,
+        Node::Split { first, second, .. } => node_at_mut(if *side { second } else { first }, rest),
+        _ => None,
     }
+}
+
+fn empty() -> Node<PanelKind> {
+    Node::Tabs { panels: vec![], active: 0 }
 }
 
 /// Replaces the split at `path` by its child that is not the Tools panel; returns whether that was
 /// the second child.
-fn drop_tools(tree: &mut DockNode, path: &[bool]) -> Option<bool> {
-    let node = node_at_mut(tree, path)?;
-    let DockNode::Split { a, b, .. } = node else { return None };
-    let keep_second = lone_tools(a);
-    let empty = || DockNode::Tabs { panels: vec![], active: 0 };
-    let kept = std::mem::replace(if keep_second { &mut **b } else { &mut **a }, empty());
+fn drop_tools(root: &mut Node<PanelKind>, path: &[bool]) -> Option<bool> {
+    let node = node_at_mut(root, path)?;
+    let Node::Split { first, second, .. } = node else { return None };
+    let keep_second = lone_tools(first);
+    let kept = std::mem::replace(if keep_second { &mut **second } else { &mut **first }, empty());
     *node = kept;
     Some(keep_second)
 }
 
 /// Widens the Tools column to two buttons; a column the user made wider stays as it is.
-fn widen_tools(tree: &mut DockNode, path: &[bool]) -> bool {
-    let Some(DockNode::Split { vertical: false, size, a, b }) = node_at_mut(tree, path) else { return false };
-    match (*size, lone_tools(a), lone_tools(b)) {
-        (SplitSize::FixedA(width), true, _) => *size = SplitSize::FixedA(width.max(DOUBLE_W)),
-        (SplitSize::FixedB(width), _, true) => *size = SplitSize::FixedB(width.max(DOUBLE_W)),
+fn widen_tools(root: &mut Node<PanelKind>, path: &[bool]) -> bool {
+    let Some(Node::Split { axis: SplitAxis::Horizontal, size, first, second }) = node_at_mut(root, path) else { return false };
+    match (*size, lone_tools(first), lone_tools(second)) {
+        (SplitSize::FixedFirst(width), true, _) => *size = SplitSize::FixedFirst(width.max(DOUBLE_W)),
+        (SplitSize::FixedSecond(width), _, true) => *size = SplitSize::FixedSecond(width.max(DOUBLE_W)),
         _ => return false,
     }
     true
@@ -203,20 +216,37 @@ fn canvas_panel(panel: PanelKind) -> bool {
     matches!(panel, PanelKind::Program | PanelKind::Timeline | PanelKind::Source | PanelKind::ReferenceMonitor)
 }
 
-/// Whether `node` is made of dock panels: some panel, none of them canvas, not only narrow strips.
-fn dock_like(node: &DockNode) -> bool {
+/// Panels that are only ever narrow: the Tools panel and the Audio Meters.
+fn compact(panel: PanelKind) -> bool {
+    matches!(panel, PanelKind::Tools | PanelKind::AudioMeters)
+}
+
+fn node_panels(node: &Node<PanelKind>, out: &mut Vec<PanelKind>) {
+    match node {
+        Node::Tabs { panels, .. } => out.extend(panels.iter().copied()),
+        Node::Split { first, second, .. } => {
+            node_panels(first, out);
+            node_panels(second, out);
+        }
+        Node::Stack { entries } => out.extend(entries.iter().map(|entry| entry.panel)),
+        _ => {}
+    }
+}
+
+/// Whether `node` is made of dock panels: some panel, none of them canvas, not only narrow ones.
+fn dock_like(node: &Node<PanelKind>) -> bool {
     let mut panels = Vec::new();
-    node.panels(&mut panels);
-    !panels.is_empty() && panels.iter().all(|panel| !canvas_panel(*panel)) && panels.iter().any(|panel| !panel.compact())
+    node_panels(node, &mut panels);
+    !panels.is_empty() && panels.iter().all(|panel| !canvas_panel(*panel)) && panels.iter().any(|panel| !compact(*panel))
 }
 
 /// The path of the first side-by-side split whose second child is the right dock.
-fn right_dock_split(node: &DockNode, path: &mut Vec<bool>) -> Option<Vec<bool>> {
-    let DockNode::Split { vertical, a, b, .. } = node else { return None };
-    if !*vertical && dock_like(b) {
+fn right_dock_split(node: &Node<PanelKind>, path: &mut Vec<bool>) -> Option<Vec<bool>> {
+    let Node::Split { axis, first, second, .. } = node else { return None };
+    if matches!(axis, SplitAxis::Horizontal) && dock_like(second) {
         return Some(path.clone());
     }
-    for (side, child) in [(false, a), (true, b)] {
+    for (side, child) in [(false, first), (true, second)] {
         path.push(side);
         let found = right_dock_split(child, path);
         path.pop();
@@ -228,48 +258,46 @@ fn right_dock_split(node: &DockNode, path: &mut Vec<bool>) -> Option<Vec<bool>> 
 }
 
 /// Whether the layout has a right dock to fold.
-pub fn has_right_dock(tree: &DockNode) -> bool {
-    right_dock_split(tree, &mut Vec::new()).is_some()
+pub fn has_right_dock(layout: &Layout<PanelKind>) -> bool {
+    layout.root.as_ref().is_some_and(|root| right_dock_split(root, &mut Vec::new()).is_some())
 }
 
-fn tab_paths(node: &DockNode, at: String, out: &mut Vec<String>) {
+/// The tab groups under `node`, each as its panels in tab order.
+fn groups(node: &Node<PanelKind>, out: &mut Vec<Vec<PanelKind>>) {
     match node {
-        DockNode::Tabs { .. } => out.push(at),
-        DockNode::Split { a, b, .. } => {
-            tab_paths(a, format!("{at}a"), out);
-            tab_paths(b, format!("{at}b"), out);
+        Node::Tabs { panels, .. } => out.push(panels.clone()),
+        Node::Split { first, second, .. } => {
+            groups(first, out);
+            groups(second, out);
         }
+        _ => {}
     }
 }
 
-fn path_label(path: &[bool]) -> String {
-    path.iter().map(|side| if *side { 'b' } else { 'a' }).collect()
-}
-
 /// `dock` as the host's switches want it drawn, or `None` at default values (upstream's dock).
-pub fn view(app: &FilmcraftApp, dock: &DockNode) -> Option<View> {
+pub fn view(app: &FilmcraftApp, dock: &Layout<PanelKind>) -> Option<View> {
     let modes = &app.c0.dock;
     if modes.is_default() {
         return None;
     }
-    let mut view = View { tree: dock.clone(), inert: Vec::new(), removed: None, palette: false, strips: Vec::new(), unfolded: None };
-    if let Some(path) = tools_split(&view.tree, &mut Vec::new()) {
+    let mut view = View { layout: dock.clone(), inert: Vec::new(), removed: None, palette: false, folded: Vec::new(), fold: None };
+    let Some(root) = view.layout.root.as_mut() else { return Some(view) };
+    if let Some(path) = tools_split(root, &mut Vec::new()) {
         if !modes.toolbar || modes.toolbar_floating {
-            view.removed = drop_tools(&mut view.tree, &path).map(|keep_second| (path, keep_second));
+            view.removed = drop_tools(root, &path).map(|keep_second| (path, keep_second));
             view.palette = view.removed.is_some() && modes.toolbar;
-        } else if modes.toolbar_double && widen_tools(&mut view.tree, &path) {
+        } else if modes.toolbar_double && widen_tools(root, &path) {
             view.inert.push(path);
         }
     }
     if modes.right_dock_collapsed
-        && let Some(path) = right_dock_split(&view.tree, &mut Vec::new())
-        && let Some(DockNode::Split { size, b, .. }) = node_at_mut(&mut view.tree, &path)
+        && let Some(path) = right_dock_split(root, &mut Vec::new())
+        && let Some(Node::Split { size, second, .. }) = node_at_mut(root, &path)
     {
-        view.unfolded = Some(*size);
-        *size = SplitSize::FixedB(STRIP_W);
-        let label = path_label(&path);
-        tab_paths(b, format!("{label}b"), &mut view.strips);
-        view.inert.push(path);
+        *size = SplitSize::FixedSecond(STRIP_W);
+        groups(&**second, &mut view.folded);
+        view.inert.push(path.clone());
+        view.fold = Some(path);
     }
     Some(view)
 }
@@ -280,12 +308,12 @@ impl View {
         self.palette
     }
 
-    /// Makes the gutter actions the laid-out view produced fit the real tree: a gutter the host
+    /// Makes the gutter actions the laid-out view produced fit the real layout: a gutter the host
     /// pinned does nothing, and a path below the dropped Tools split gets its step back.
     pub fn settle(&self, actions: &mut Vec<Action<PanelKind>>) {
         actions.retain_mut(|action| {
             let Action::ResizeSplit { path, .. } = action else { return true };
-            if self.inert.contains(path) {
+            if self.inert.contains(path) || self.fold.as_ref().is_some_and(|fold| path.starts_with(fold)) {
                 return false;
             }
             if let Some((at, keep_second)) = &self.removed
@@ -295,13 +323,6 @@ impl View {
             }
             true
         });
-    }
-
-    /// Takes the folded groups out of the laid-out `groups`; the dock draws the rest.
-    pub fn take_strips(&self, groups: &mut Vec<Group>) -> Vec<Group> {
-        let (strips, rest): (Vec<Group>, Vec<Group>) = std::mem::take(groups).into_iter().partition(|group| self.strips.contains(&group.path));
-        *groups = rest;
-        strips
     }
 }
 
@@ -390,63 +411,65 @@ fn panel_icon(panel: PanelKind) -> Icon {
     }
 }
 
-/// The folded groups: a column of icons each, an unfold button on the first. An icon opens its
-/// panel in the flyout. Nothing else in the layout moves.
-pub fn strips(app: &mut FilmcraftApp, ui: &mut egui::Ui, strips: &[Group], body: Rect) {
-    let ctx = ui.ctx().clone();
+/// One folded group, `index` in the right dock, drawn over its body `frame` and the tab header above
+/// it, which the dock lays out but this strip covers. Returns the strip's rectangle.
+pub fn strip(app: &mut FilmcraftApp, ui: &mut egui::Ui, index: usize, panels: &[PanelKind], frame: Rect) -> Rect {
     let t = app.tokens;
-    for (index, group) in strips.iter().enumerate() {
-        let rect = group.rect;
-        ui.painter().rect_filled(rect, t.radius, t.panel_bg);
-        app.auto.add(&format!("c0.dock.right.strip.{index}"), rect, "Right dock");
-        let mut y = rect.min.y + 4.0;
-        if index == 0 {
-            let button = Rect::from_min_size(pos2(rect.center().x - STRIP_BUTTON / 2.0, y), vec2(STRIP_BUTTON, STRIP_BUTTON));
-            let response = ui.interact(button, egui::Id::unique("c0-dock-unfold"), Sense::click()).on_hover_text(crate::i18n::t("Unfold"));
-            response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, response.enabled(), "Unfold"));
-            app.auto.add_response("c0.dock.right.unfold", &response, "Unfold");
-            if response.hovered() {
-                ui.painter().rect_filled(button, 4.0, t.hover);
-            }
-            icons::paint(ui.painter(), Rect::from_center_size(button.center(), vec2(15.0, 15.0)), Icon::ChevronLeft, t.icon);
-            if response.clicked() {
-                app.c0.dock.right_dock_collapsed = false;
-                app.c0.dock.flyout = None;
-            }
-            y += STRIP_BUTTON + 6.0;
+    let rect = Rect::from_min_max(pos2(frame.min.x, frame.min.y - t.tab_h), frame.max);
+    // The group's own child ui clips to its body; the strip's clip is its whole rectangle.
+    let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(rect).id_salt(("c0-dock-strip", index)));
+    ui.set_clip_rect(rect);
+    ui.painter().rect_filled(rect, t.radius, t.panel_bg);
+    app.auto.add(&format!("c0.dock.right.strip.{index}"), rect, "Right dock");
+    // Swallows presses on the covered tab header; the buttons below are drawn over it.
+    ui.interact(rect, egui::Id::unique(("c0-dock-strip-area", index)), Sense::click());
+    let mut y = rect.min.y + 4.0;
+    if index == 0 {
+        let button = Rect::from_min_size(pos2(rect.center().x - STRIP_BUTTON / 2.0, y), vec2(STRIP_BUTTON, STRIP_BUTTON));
+        let response = ui.interact(button, egui::Id::unique("c0-dock-unfold"), Sense::click()).on_hover_text(crate::i18n::t("Unfold"));
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, response.enabled(), "Unfold"));
+        app.auto.add_response("c0.dock.right.unfold", &response, "Unfold");
+        if response.hovered() {
+            ui.painter().rect_filled(button, 4.0, t.hover);
         }
-        for panel in &group.panels {
-            if y + STRIP_BUTTON > rect.max.y {
-                break;
-            }
-            let button = Rect::from_min_size(pos2(rect.center().x - STRIP_BUTTON / 2.0, y), vec2(STRIP_BUTTON, STRIP_BUTTON));
-            let response = ui.interact(button, egui::Id::unique(("c0-dock-strip", panel.id())), Sense::click()).on_hover_text(crate::i18n::t(panel.title()));
-            let open = app.c0.dock.flyout == Some(*panel);
-            response.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, response.enabled(), open, panel.title()));
-            app.auto.add_response(&format!("c0.dock.right.panel.{}", panel.id()), &response, panel.title());
-            if open {
-                ui.painter().rect_filled(button, 4.0, t.accent);
-            } else if response.hovered() {
-                ui.painter().rect_filled(button, 4.0, t.hover);
-            }
-            let color = if open { egui::Color32::WHITE } else { t.icon };
-            icons::paint(ui.painter(), Rect::from_center_size(button.center(), vec2(16.0, 16.0)), panel_icon(*panel), color);
-            if response.clicked() {
-                app.c0.dock.flyout = if open { None } else { Some(*panel) };
-                if !open {
-                    app.ui.focused = *panel;
-                    // The panel is also the one the unfolded dock shows.
-                    let _ = app.apply_dock(Action::Activate { panel: *panel });
-                }
-            }
-            y += STRIP_BUTTON + 4.0;
+        icons::paint(ui.painter(), Rect::from_center_size(button.center(), vec2(15.0, 15.0)), Icon::ChevronLeft, t.icon);
+        if response.clicked() {
+            app.c0.dock.right_dock_collapsed = false;
+            app.c0.dock.flyout = None;
         }
+        y += STRIP_BUTTON + 6.0;
     }
-    flyout(app, &ctx, strips, body);
+    for panel in panels {
+        if y + STRIP_BUTTON > rect.max.y {
+            break;
+        }
+        let button = Rect::from_min_size(pos2(rect.center().x - STRIP_BUTTON / 2.0, y), vec2(STRIP_BUTTON, STRIP_BUTTON));
+        let response = ui.interact(button, egui::Id::unique(("c0-dock-strip", panel.id())), Sense::click()).on_hover_text(crate::i18n::t(panel.title()));
+        let open = app.c0.dock.flyout == Some(*panel);
+        response.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, response.enabled(), open, panel.title()));
+        app.auto.add_response(&format!("c0.dock.right.panel.{}", panel.id()), &response, panel.title());
+        if open {
+            ui.painter().rect_filled(button, 4.0, t.accent);
+        } else if response.hovered() {
+            ui.painter().rect_filled(button, 4.0, t.hover);
+        }
+        let color = if open { egui::Color32::WHITE } else { t.icon };
+        icons::paint(ui.painter(), Rect::from_center_size(button.center(), vec2(16.0, 16.0)), panel_icon(*panel), color);
+        if response.clicked() {
+            app.c0.dock.flyout = if open { None } else { Some(*panel) };
+            if !open {
+                app.ui.focused = *panel;
+                // The panel is also the one the unfolded dock shows.
+                let _ = app.apply_dock(Action::Activate { panel: *panel });
+            }
+        }
+        y += STRIP_BUTTON + 4.0;
+    }
+    rect
 }
 
 /// The open panel of a folded dock, over the canvas beside its strip.
-fn flyout(app: &mut FilmcraftApp, ctx: &egui::Context, strips: &[Group], body: Rect) {
+pub fn flyout(app: &mut FilmcraftApp, ctx: &egui::Context, strips: &[Strip], body: Rect) {
     let Some(panel) = app.c0.dock.flyout else { return };
     let Some(group) = strips.iter().find(|group| group.panels.contains(&panel)) else {
         app.c0.dock.flyout = None;
@@ -462,7 +485,10 @@ fn flyout(app: &mut FilmcraftApp, ctx: &egui::Context, strips: &[Group], body: R
         ui.painter().rect_filled(rect, t.radius, t.panel_bg);
         ui.painter().text(rect.min + vec2(10.0, t.tab_h / 2.0), Align2::LEFT_CENTER, crate::i18n::t(panel.title()), crate::theme::Tokens::ui(12.0), t.text);
         let content = Rect::from_min_max(pos2(rect.min.x, rect.min.y + t.tab_h), rect.max);
-        app.panel_body(ui, panel, content);
+        app.auto.add(&format!("panel.{}", panel.id()), content, panel.title());
+        let mut child = ui.new_child(egui::UiBuilder::new().max_rect(content).id_salt(("c0-dock-flyout-body", panel.id())));
+        child.set_clip_rect(content.intersect(ui.clip_rect()));
+        crate::panels::show(app, &mut child, panel, content);
         ui.painter().rect_stroke(rect, t.radius, Stroke::new(1.0, t.focus), StrokeKind::Outside);
     });
     // Escape, or a press on the canvas outside the flyout and the strip, folds it away again.
@@ -477,25 +503,20 @@ fn flyout(app: &mut FilmcraftApp, ctx: &egui::Context, strips: &[Group], body: R
     }
 }
 
-/// Where the Program monitor's picture area begins, for the palette's default corner.
-pub fn program_content(groups: &[Group]) -> Option<Rect> {
-    groups.iter().find(|group| group.panels.get(group.active) == Some(&PanelKind::Program)).map(|group| group.content)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn node_at<'a>(node: &'a DockNode, path: &[bool]) -> Option<&'a DockNode> {
+    fn node_at<'a>(node: &'a Node<PanelKind>, path: &[bool]) -> Option<&'a Node<PanelKind>> {
         let Some((side, rest)) = path.split_first() else { return Some(node) };
         match node {
-            DockNode::Split { a, b, .. } => node_at(if *side { b } else { a }, rest),
-            DockNode::Tabs { .. } => None,
+            Node::Split { first, second, .. } => node_at(if *side { second } else { first }, rest),
+            _ => None,
         }
     }
 
-    fn tabs(panel: PanelKind) -> DockNode {
-        DockNode::Tabs { panels: vec![panel], active: 0 }
+    fn tabs(panel: PanelKind) -> Node<PanelKind> {
+        Node::Tabs { panels: vec![panel], active: 0 }
     }
 
     #[test]
@@ -512,21 +533,33 @@ mod tests {
 
     #[test]
     fn dropping_tools_keeps_the_sibling_and_gives_resizes_their_path_back() {
-        let inner = DockNode::Split {
-            vertical: false,
-            size: SplitSize::FixedB(116.0),
-            a: Box::new(tabs(PanelKind::Timeline)),
-            b: Box::new(tabs(PanelKind::AudioMeters)),
+        let inner = Node::Split {
+            axis: SplitAxis::Horizontal,
+            size: SplitSize::FixedSecond(116.0),
+            first: Box::new(tabs(PanelKind::Timeline)),
+            second: Box::new(tabs(PanelKind::AudioMeters)),
         };
-        let split = DockNode::Split { vertical: false, size: SplitSize::FixedA(64.0), a: Box::new(tabs(PanelKind::Tools)), b: Box::new(inner.clone()) };
-        let root = DockNode::Split { vertical: true, size: SplitSize::Ratio(0.5), a: Box::new(tabs(PanelKind::Program)), b: Box::new(split) };
+        let split = Node::Split {
+            axis: SplitAxis::Horizontal,
+            size: SplitSize::FixedFirst(64.0),
+            first: Box::new(tabs(PanelKind::Tools)),
+            second: Box::new(inner.clone()),
+        };
+        let root = Node::Split { axis: SplitAxis::Vertical, size: SplitSize::Ratio(0.5), first: Box::new(tabs(PanelKind::Program)), second: Box::new(split) };
         let path = tools_split(&root, &mut Vec::new()).expect("a split holds the Tools panel");
         assert_eq!(path, vec![true]);
         let mut tree = root.clone();
         assert_eq!(drop_tools(&mut tree, &path), Some(true));
         assert_eq!(node_at(&tree, &path), Some(&inner));
-        let view = View { tree, inert: vec![vec![]], removed: Some((path, true)), palette: false, strips: vec![], unfolded: None };
-        let resize = |path: Vec<bool>| Action::ResizeSplit { path, size: craft_ui::layout::SplitSize::Ratio(0.3) };
+        let view = View {
+            layout: Layout { root: Some(tree), floating: vec![] },
+            inert: vec![vec![]],
+            removed: Some((path, true)),
+            palette: false,
+            folded: vec![],
+            fold: None,
+        };
+        let resize = |path: Vec<bool>| Action::ResizeSplit { path, size: SplitSize::Ratio(0.3) };
         let mut actions = vec![resize(vec![]), resize(vec![true]), resize(vec![true, false])];
         view.settle(&mut actions);
         // the pinned root gutter is gone; the inner split moves one step down; deeper paths follow

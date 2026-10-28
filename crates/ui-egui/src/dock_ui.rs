@@ -12,6 +12,7 @@ use craft_ui::docking::{
 use egui::{Rect, Sense, Stroke, StrokeKind, vec2};
 use serde_json::{Value, json};
 
+use crate::c0_host::dock_modes;
 use crate::dock::{self, LayoutExt as _, PanelKind, SeqAction, SeqTabs};
 use crate::icons::{self, Icon};
 use crate::theme::Tokens;
@@ -232,7 +233,7 @@ impl FilmcraftApp {
                 .collect(),
             active: self.session.state.active_sequence.map(|id| id.0),
         };
-        let style = dock_style(ui, &t);
+        let mut style = dock_style(ui, &t);
         // No `monitors`: the monitor list comes with the egui fork's `ViewportInfo::monitors`.
         let control_input_only = self.control_input_only;
         let armed = std::sync::Arc::clone(&self.native_ctrl_click_armed);
@@ -244,7 +245,12 @@ impl FilmcraftApp {
         if let Some(panel) = self.pending_panel_raise.take() {
             area = area.raise_panel(panel);
         }
-        let layout = self.ui.dock.clone();
+        let view = dock_modes::view(self, &self.ui.dock);
+        let layout = view.as_ref().map_or_else(|| self.ui.dock.clone(), |view| view.layout.clone());
+        // craft-ui keeps every group at least `min_pane` wide; a folded right dock is only a strip.
+        if view.as_ref().is_some_and(|view| !view.folded.is_empty()) {
+            style.min_pane = dock_modes::STRIP_W;
+        }
         let mut child = ui.new_child(egui::UiBuilder::new().max_rect(body).id_salt("filmcraft-dock-area"));
         child.set_clip_rect(body.intersect(ui.clip_rect()));
         let seq_width = dock::sequence_tabs_width(ui, &seqs);
@@ -252,11 +258,27 @@ impl FilmcraftApp {
         // Timeline's sequence tabs), drawn before its bodies, carry that window too.
         self.auto.windows =
             self.ui.dock.floating.iter().enumerate().map(|(index, window)| (DockArea::<PanelKind>::window_viewport(area_id(), window.id), index)).collect();
-        let mut content =
-            FilmContent { app: self, seqs, seq_width, tokens: t, seq_actions: Vec::new(), menu: None, bodies: Vec::new(), restore_workspace: false };
+        let folded = view.as_ref().map(|view| view.folded.clone()).unwrap_or_default();
+        let mut content = FilmContent {
+            app: self,
+            seqs,
+            seq_width,
+            tokens: t,
+            seq_actions: Vec::new(),
+            menu: None,
+            bodies: Vec::new(),
+            restore_workspace: false,
+            folded,
+            strips: Vec::new(),
+        };
         let output = area.show_content(&mut child, &layout, &style, &mut content);
-        let FilmContent { seq_actions, mut menu, bodies, restore_workspace, .. } = content;
+        let FilmContent { seq_actions, mut menu, bodies, restore_workspace, strips, .. } = content;
+        let program = bodies.iter().find(|(panel, _, _)| *panel == PanelKind::Program).map(|(_, rect, _)| *rect);
         ctx.data_mut(|data| data.insert_temp(bodies_id(), bodies));
+        if view.as_ref().is_some_and(|view| view.palette()) {
+            dock_modes::palette(self, ui, body, program);
+        }
+        dock_modes::flyout(self, &ctx, &strips, body);
         if let Some(panel) = output.focused {
             self.ui.focused = panel;
         }
@@ -270,7 +292,11 @@ impl FilmcraftApp {
                 panels::keyboard::toggle_maximize(self, panel);
             }
         }
-        for action in output.actions {
+        let mut actions = output.actions;
+        if let Some(view) = &view {
+            view.settle(&mut actions);
+        }
+        for action in actions {
             for action in self.close_keeping_timeline(action) {
                 if let Err(error) = self.dock_command(&ctx, action) {
                     self.ui.status = error;
@@ -447,6 +473,9 @@ struct FilmContent<'a> {
     bodies: Vec<(PanelKind, Rect, egui::LayerId)>,
     /// Restore Workspace chosen in a tab's menu; it replaces the layout after the dock area is drawn.
     restore_workspace: bool,
+    /// The right dock's folded groups (see `dock_modes::view`), and the strips drawn this frame.
+    folded: Vec<Vec<PanelKind>>,
+    strips: Vec<dock_modes::Strip>,
 }
 
 impl DockContent<PanelKind> for FilmContent<'_> {
@@ -455,6 +484,13 @@ impl DockContent<PanelKind> for FilmContent<'_> {
         let frame = ui.max_rect();
         let rect = frame;
         self.bodies.push((*panel, rect, ui.layer_id()));
+        // A folded group of the right dock draws its icon strip instead of its panel.
+        if let Some(index) = self.folded.iter().position(|group| group.contains(panel)) {
+            let group = self.folded[index].clone();
+            let rect = dock_modes::strip(self.app, ui, index, &group, frame);
+            self.strips.push(dock_modes::Strip { panels: group, rect });
+            return;
+        }
         // A panel in its own OS window draws in that window's coordinates: its automation
         // elements carry the window so they are not matched against main-window points.
         let viewport = ui.ctx().viewport_id();
