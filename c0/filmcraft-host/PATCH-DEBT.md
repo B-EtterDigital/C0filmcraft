@@ -27,6 +27,14 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/export/src/aac_out.rs` | +3 / -0 | Reject pending synchronous audio before finishing output | Avoid silently truncated audio files | yes, as is |
 | `crates/export/src/audio_out.rs` | +10 / -0 | Preserve cursors on pending audio; reject incomplete loudness passes | Avoid lost samples and non-progressing measurement on wasm | yes, as is |
 | `crates/export/src/job.rs` | +21 / -7 | Poll browser readiness and final metadata/timing; correct pending-audio docs | Drain asynchronous output without losing audio or changing default packet ordering | mixed: pending-audio fix yes, as is; host encoder hooks no |
+| `crates/export/src/encoders.rs` | +19 / -3 | `patent-codecs` gates on the AAC and H.264 encoders, factories and `h264_slices`; H.264-only imports gated | Build without software AAC/H.264 | no |
+| `crates/export/src/format.rs` | +5 / -4 | Codec-free default format (Motion JPEG); `has_builtin_encoder` gates H.264/AAC; `H264Pass` takes the `c0_codec_policy` stat type | Quick Export defaults to a format that exists | no |
+| `crates/export/src/registry.rs` | +31 / -2 | Host hooks on the traits (`ready`, `finish_ready`, `final_sample_entry`, `final_timing`, `asynchronous`); factory imports switched by feature | Browser encoders need readiness; upstream has no such hook | no |
+| `crates/export/src/run.rs` | +3 / -0 | Synchronous pending-audio guard in `export_here` (moved here upstream) | Refuse a truncated synchronous export while media loads | yes, as is |
+| `crates/ui-egui/src/app.rs` | +1 / -0 | Host state initialised in `FilmcraftApp::new` | Host chrome state | no |
+| `crates/ui-egui/src/app/control.rs` | +1 / -1 | `ui.render` does not raise the window | Frameless render must not present a window | no |
+| `crates/ui-egui/src/app/frame.rs` | +6 / -4 | Host gates on header/title bar, status bar and start screen; c0 file-drop hook | Hide host-owned chrome; tool modes | no |
+| `crates/ui-egui/src/app/prefs.rs` | +1 / -1 | `set_theme` passes the host palette through `theme::host::resolve` | Runtime host palette | no |
 | `crates/export/src/lib.rs` | +41 / -5 | Feature boundary, default fallback, encoder readiness and pending-audio guard | Exclude codecs, finish browser output, and reject truncated synchronous exports | mixed: pending-audio guard yes, as is; host feature/hooks no |
 | `crates/export/src/presets.rs` | +2 / -2 | Choose a codec-free default preset when feature is off | Quick Export defaults to a format that exists | no |
 | `crates/gpu/Cargo.toml` | +1 / -1 | Explicit test dependency defaults | Keep isolated GPU tests unchanged | no |
@@ -55,3 +63,8 @@ The 70-line target is exceeded (it already was, at 259, before the tool-mode lan
 graph; browser encoding also needs cooperative completion and final mux timing. The pending-audio
 fixes are generic wasm fixes and are marked for offering upstream as is. No upstream code is
 removed from the default feature configuration.
+
+Re-measured 2026-10-28 on upstream `176e6a9c585f` (`git diff --numstat --diff-filter=M 176e6a9c585f HEAD -- . ':!c0'`):
+303 added / 79 removed lines in 48 files. The UI port is not finished: `crates/ui-egui/src/dock_ui.rs` (13 lines in the ratchet)
+is not re-applied, and `c0_host/dock_modes.rs` does not compile against the new dock API. The +20 added lines over the ratchet of 283 are forced by upstream's
+moved hooks (the export trait surface and factory gating) and the new UI hook sites; they must be re-justified once the dock port lands.
