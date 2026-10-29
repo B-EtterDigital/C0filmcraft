@@ -56,10 +56,8 @@ mod still_encode;
 
 pub use convert::{rgba_to_yuv420_8, rgba_to_yuv422_10, rgbf_to_yuv420_8, rgbf_to_yuv420_10, rgbf_to_yuv422_10, to_yuv444_10};
 pub(crate) use encoders::FlacAudio;
-#[cfg(all(test, feature = "patent-codecs"))]
+#[cfg(test)]
 use encoders::{aac_factory, h264_factory};
-#[cfg(all(test, not(feature = "patent-codecs")))]
-use c0_codec_policy::{aac_factory, h264_factory};
 pub use encoders::{apv_profile, dnx_profile, prores_profile};
 pub use format::{ColorSignal, DEFAULT_CRF, ExportSettings, Format, H264Pass};
 use output::Out;

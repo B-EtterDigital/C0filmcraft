@@ -1,8 +1,4 @@
-use super::encoders::{apv_factory, dnx_factory, mjpeg_factory, prores_factory};
-#[cfg(feature = "patent-codecs")]
-use super::encoders::{aac_factory, h264_factory};
-#[cfg(not(feature = "patent-codecs"))]
-use super::c0_codec_policy::{aac_factory, h264_factory};
+use super::encoders::{aac_factory, apv_factory, dnx_factory, h264_factory, mjpeg_factory, prores_factory};
 use super::format::{ExportSettings, Format};
 #[cfg(test)]
 use super::stats::{GPU_FALLBACKS, GPU_FRAMES};
