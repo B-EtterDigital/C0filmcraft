@@ -5,7 +5,7 @@ and c0 tests are additions rather than upstream patch debt.
 
 | File | Lines | What | Why | Offered upstream |
 |---|---:|---|---|---|
-| `Cargo.lock` | +4 / -1 | Lock host serialization/browser export dependency wiring; craft-media from our C0craft-libs fork | Keep builds reproducible | no |
+| `Cargo.lock` | +6 / -3 | Lock host serialization/browser export dependency wiring; craft-media from our C0craft-libs fork | Keep builds reproducible | no |
 | `Cargo.toml` | +7 / -4 | Disable inherited codec defaults at dependency seams; `[patch]` craft-media to B-EtterDigital/C0craft-libs (the presentation-window hook moved there with the muxer, 2026-10-25) | Allow the page to select a codec-free graph | no |
 | `apps/filmcraft-cli/Cargo.toml` | +3 / -3 | Explicit native dependency defaults | Keep CLI behaviour unchanged | no |
 | `apps/filmcraft-web/Cargo.toml` | +9 / -0 | Page feature, codec forwarding, native transport test deps, export interface | Reuse the existing web binary and pass K-41 | no |
@@ -21,30 +21,30 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/codecs/src/mp4.rs` | +4 / -0 | Gate SPS helpers and select container metadata fallbacks | MP4 remains available without software decoders | no |
 | `crates/codecs/src/mxf.rs` | +3 / -0 | Gate AVC POC parsing and select unsupported fallback | Avoid linking software H.264 merely for MXF metadata | no |
 | `crates/codecs/src/stream_color.rs` | +7 / -1 | Gate AVC/HEVC bitstream colour inference | Use container colour metadata without software SPS parsers | no |
-| `crates/codecs/src/video.rs` | +15 / -0 | Gate H.264/HEVC types, implementations and factories | Remove software decoders while retaining safe unsupported paths | no |
+| `crates/codecs/src/video.rs` | +2 / -225 | Declare and re-export `video/c0_video.rs`, which holds the H.264 and HEVC decoders and their codec-free fallbacks | Gated decoders and fallbacks move into a c0 child module; upstream keeps the decoder trait and MJPEG | no |
 | `crates/engine/Cargo.toml` | +2 / -1 | Forward default-on codec feature | Allow the page to disable codecs without changing normal engine defaults | no |
 | `crates/export/Cargo.toml` | +7 / -3 | Default-on codec feature and optional encoder dependencies | Exclude software H.264/AAC from the page | no |
 | `crates/export/src/aac_out.rs` | +3 / -0 | Reject pending synchronous audio before finishing output | Avoid silently truncated audio files | yes, as is |
 | `crates/export/src/audio_out.rs` | +10 / -0 | Preserve cursors on pending audio; reject incomplete loudness passes | Avoid lost samples and non-progressing measurement on wasm | yes, as is |
 | `crates/export/src/job.rs` | +21 / -7 | Poll browser readiness and final metadata/timing; correct pending-audio docs | Drain asynchronous output without losing audio or changing default packet ordering | mixed: pending-audio fix yes, as is; host encoder hooks no |
-| `crates/export/src/encoders.rs` | +19 / -3 | `patent-codecs` gates on the AAC and H.264 encoders, factories and `h264_slices`; H.264-only imports gated | Build without software AAC/H.264 | no |
+| `crates/export/src/encoders.rs` | +5 / -198 | Declare and re-export `encoders/c0_codecs.rs` (AAC and H.264 encoders, factories, `h264_slices`); three import lines without the patent-only names | Build without software AAC/H.264; codec-free factories come from `c0_codec_policy` | no |
 | `crates/export/src/format.rs` | +5 / -4 | Codec-free default format (Motion JPEG); `has_builtin_encoder` gates H.264/AAC; `H264Pass` takes the `c0_codec_policy` stat type | Quick Export defaults to a format that exists | no |
-| `crates/export/src/registry.rs` | +31 / -2 | Host hooks on the traits (`ready`, `finish_ready`, `final_sample_entry`, `final_timing`, `asynchronous`); factory imports switched by feature | Browser encoders need readiness; upstream has no such hook | no |
+| `crates/export/src/registry.rs` | +26 / -1 | Host hooks on the traits (`ready`, `finish_ready`, `final_sample_entry`, `final_timing`, `asynchronous`); `PassStats` from `c0_codec_policy` | Browser encoders need readiness; upstream has no such hook | no |
 | `crates/export/src/run.rs` | +3 / -0 | Synchronous pending-audio guard in `export_here` (moved here upstream) | Refuse a truncated synchronous export while media loads | yes, as is |
 | `crates/ui-egui/src/app.rs` | +1 / -0 | Host state initialised in `FilmcraftApp::new` | Host chrome state | no |
 | `crates/ui-egui/src/app/control.rs` | +1 / -1 | `ui.render` does not raise the window | Frameless render must not present a window | no |
 | `crates/ui-egui/src/app/frame.rs` | +6 / -4 | Host gates on header/title bar, status bar and start screen; c0 file-drop hook | Hide host-owned chrome; tool modes | no |
 | `crates/ui-egui/src/app/prefs.rs` | +1 / -1 | `set_theme` passes the host palette through `theme::host::resolve` | Runtime host palette | no |
-| `crates/export/src/lib.rs` | +41 / -5 | Feature boundary, default fallback, encoder readiness and pending-audio guard | Exclude codecs, finish browser output, and reject truncated synchronous exports | mixed: pending-audio guard yes, as is; host feature/hooks no |
+| `crates/export/src/lib.rs` | +1 / -0 | Declare the codec policy module | Codec-free fallbacks and PassStats | mixed: pending-audio guard yes, as is; host feature/hooks no |
 | `crates/export/src/presets.rs` | +2 / -2 | Choose a codec-free default preset when feature is off | Quick Export defaults to a format that exists | no |
 | `crates/gpu/Cargo.toml` | +1 / -1 | Explicit test dependency defaults | Keep isolated GPU tests unchanged | no |
 | `crates/platform/Cargo.toml` | +2 / -2 | Explicit native codec defaults | Keep OS codec integrations unchanged | no |
-| `crates/ui-egui/Cargo.toml` | +7 / -1 | Forward codec feature; project serialization/base64 dependencies | Use the app's own file format and host byte contract | no |
+| `crates/ui-egui/Cargo.toml` | +7 / -1 | Forward codec feature; project file format (`filmcraft-format`) and base64 0.23 (the locked release) for the host byte contract | Use the app's own file format and host byte contract | no |
 | `crates/ui-egui/src/control.rs` | +2 / -0 | One c0.* dispatch arm; one `ui.render` arm | Reuse the existing control queue | no |
 | `crates/ui-egui/src/credits.rs` | +2 / -2 | Host-aware contributor labels | Keep author credit while removing GitHub links | no |
-| `crates/ui-egui/src/dock_ui.rs` | +13 / -2 | `panel_body` is `pub(crate)`; `dock_area` lays out a host view of the tree when a tool-mode or right-dock switch is set, takes folded groups out, settles gutter actions, draws the strips and the palette | The tool modes and the foldable right dock are views of the dock; at default values `view` is `None` and the real tree is laid out as before | no |
-| `crates/ui-egui/src/header.rs` | +15 / -13 | Read Home/community/menu switches | Hide host-owned and promotional chrome | no |
-| `crates/ui-egui/src/lib.rs` | +11 / -6 | Host state and narrow theme/chrome/dialog seams; no window raise for `ui.render` | Nonpersisted default-on switches and runtime host palette; the frameless render must not present a window | no |
+| `crates/ui-egui/src/dock_ui.rs` | +10 / -5 | `dock_modes::begin` lays out the frame (the tool-mode and right-dock views, and a folded dock's pane width), `fold` draws a folded group as its strip, `settle` maps the gutter actions and `after` draws the palette and flyout | The tool modes and the foldable right dock are views of the dock; at default values the layout is the real tree as before | no |
+| `crates/ui-egui/src/header.rs` | +3 / -14 | Home is `c0_host::chrome::home`; read Home, community and menu switches | Hide host-owned and promotional chrome | no |
+| `crates/ui-egui/src/lib.rs` | +2 / -0 | Declare the host module and its state field; the runtime palette lives in `theme::host` | Host state; the frameless render must not present a window | no |
 | `crates/ui-egui/src/links.rs` | +3 / -0 | Suppress host-hidden community URLs | Cover direct opener calls as well as visible widgets | no |
 | `crates/ui-egui/src/menus.rs` | +2 / -0 | Host command guard and menu filtering | Remove all promotional link entries and refuse direct invocation | no |
 | `crates/ui-egui/src/panels/dialogs.rs` | +5 / -0 | Community state for credits and hosted About branch | Keep authors/licence, remove promotions and trademark mark | no |
@@ -53,8 +53,8 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/ui-egui/src/theme.rs` | +1 / -0 | Declare host palette module | Expose the context-local colour override | no |
 | `xtask/src/main.rs` | +6 / -0 | Forward opt-in page-control/no-default-features arguments | Build via upstream's own cargo/wasm-bindgen pipeline | no |
 
-Total: 281 added lines in 39 upstream files (measured 2026-10-25: +3 [patch] in Cargo.toml, +1 lock line, -1 mux.rs, which upstream moved into craft-media).
-Ratchet: 283
+Total: 256 added lines in 47 upstream text files (measured 2026-10-29, after the debt pass; see the paragraph below).
+Ratchet: 256
 Re-measured 2026-10-26 after the upstream merge (egui 0.37 port, update prompt): 281, unchanged file for file. Our header Home gate, status-bar gate, tool columns and the craft-media [patch] were kept; upstream dropped its own no-status-bar job poll (it polls every frame now), so that line left with it, not with us.
 Re-measured 2026-10-26 after the hidden-page fix: 283 added lines in 41 modified upstream files (`git diff --numstat --diff-filter=M origin/main -- . ':!c0'`). +2 in `apps/filmcraft-web/src/lib.rs`: the `raw_input_hook` seam that lets the page bridge run a `ui.*` request's UI pass while the guest view is hidden under the host's start cover (`ui.set {theme}` timed out with "no UI pass ran before the control request deadline"). Everything else is in `page_control*` and a c0 test.
 
@@ -71,3 +71,18 @@ moved hooks (the export trait surface and factory gating) and the new UI hook si
 
 Re-measured 2026-10-29 on upstream `176e6a9c585f` after the tool-strip and right-dock port (`git diff --numstat --diff-filter=M 176e6a9c585f HEAD -- . ':!c0'`):
 49 files, +345 / -85. Ratchet 283 is exceeded by +62. The growth is in `crates/ui-egui/src/dock_ui.rs` (42 / 6 lines: the view, the settled gutter actions, the folded-group body, the palette and flyout hooks, and the `min_pane` lift while folded) and in the test-adaptation hunks. The port is not yet re-justified against the ratchet; it must be, at the next upstream pull that touches `dock_ui.rs`.
+
+Re-measured 2026-10-29, debt pass on upstream `176e6a9c585f` (`git diff --numstat --diff-filter=M 176e6a9c585f HEAD -- . ':!c0'`):
+256 added / 499 removed lines in 47 text files (the two brand PNGs are binary and not counted). Ratchet 283 is met with 27 lines to spare; the
+ratchet is now 256. The growth that was not justified is paid back by moving code out of upstream files, with one hook line per site:
+
+- `crates/ui-egui/src/dock_ui.rs` 42 → 10 added: the view, fold, settle and flyout logic is in `c0_host/dock_modes.rs` behind a per-frame `Frame` on the host.
+- `crates/ui-egui/src/header.rs` 15 → 3 added: the Home button is `c0_host/chrome.rs`; the community and menu gates are one-line changes.
+- `crates/codecs/src/video.rs` 15 → 2 added: the H.264 and HEVC decoders are in `video/c0_video.rs`.
+- `crates/export/src/encoders.rs` 19 → 5 added: the AAC and H.264 encoders and factories are in `encoders/c0_codecs.rs`.
+- `crates/ui-egui/Cargo.toml` and `Cargo.lock`: `base64` is 0.23, the release upstream's lock already resolves, which removed a second package (Cargo.lock 16 → 6 added).
+
+Left, and why: `registry.rs` (26) is the export trait surface the browser encoders need, and upstream's traits must declare it; `job.rs` (21) is the
+readiness and final-timing hook sites; `import.rs` (16) and `audio.rs` (18) are gates on code that stays in upstream's functions; `Cargo.lock` (6) is the
+craft-media fork's source and the edges of our `filmcraft-format`, `filmcraft-export` and `base64` dependencies. No c0 crate exists to move
+`filmcraft-format` or `base64` into, so they stay.
