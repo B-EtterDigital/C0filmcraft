@@ -68,3 +68,6 @@ Re-measured 2026-10-28 on upstream `176e6a9c585f` (`git diff --numstat --diff-fi
 303 added / 79 removed lines in 48 files. The UI port is not finished: `crates/ui-egui/src/dock_ui.rs` (13 lines in the ratchet)
 is not re-applied, and `c0_host/dock_modes.rs` does not compile against the new dock API. The +20 added lines over the ratchet of 283 are forced by upstream's
 moved hooks (the export trait surface and factory gating) and the new UI hook sites; they must be re-justified once the dock port lands.
+
+Re-measured 2026-10-29 on upstream `176e6a9c585f` after the tool-strip and right-dock port (`git diff --numstat --diff-filter=M 176e6a9c585f HEAD -- . ':!c0'`):
+49 files, +345 / -85. Ratchet 283 is exceeded by +62. The growth is in `crates/ui-egui/src/dock_ui.rs` (42 / 6 lines: the view, the settled gutter actions, the folded-group body, the palette and flyout hooks, and the `min_pane` lift while folded) and in the test-adaptation hunks. The port is not yet re-justified against the ratchet; it must be, at the next upstream pull that touches `dock_ui.rs`.

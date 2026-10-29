@@ -1,87 +1,96 @@
 # Upstream pull 20261028: filmcraft `176e6a9c585f` into `c0/main`
 
-Status: **BLOCKED** on the UI port. The merge, the export crate and the trademark/CI cleanup are done and committed.
-The tool-strip and right-dock views (`crates/ui-egui/src/c0_host/dock_modes.rs`) and `dock_ui.rs` are not ported.
-Nothing below claims a test pass that was not run.
+Status: the tool-strip modes and the right-dock fold are ported onto craft_ui docking. `filmcraft-ui-egui`
+compiles and its full test run is green. The web tests, the wasm check and the page build were queued at the
+shared gate behind a whole-host hold when this section was written; their results are recorded below as they land.
 
 ## Commits on `fix`
 
 | commit | what |
 |---|---|
-| `2afca3aa` | `merge: upstream 176e6a9c585f into c0/main` (parents: `610b19c7` fix base, `176e6a9c` upstream). Checkpoint: export compiles; UI hooks applied but not compile-verified. |
-| `4ea59eff` | `chore(c0): keep upstream trademarks and CI out of c0/main`. Upstream `.github/workflows` and `docs/brand` removed; the two PNGs `brand.rs` embeds are 1x1 transparent placeholders. |
+| `2afca3aa` | `merge: upstream 176e6a9c585f into c0/main` |
+| `4ea59eff` | `chore(c0): keep upstream trademarks and CI out of c0/main` |
+| `7174ea35` | `feat(c0): port tool-strip modes and right-dock fold onto craft_ui docking` |
 
-The result descends from `origin/c0/main` (`610b19c7`) and from upstream `176e6a9c`.
+## Port
 
-## Conflicted files and resolution
+Upstream replaced `dock::layout_with_actions`, `DockNode` and `Group` with `craft_ui::docking::{Layout, Node}` and
+`DockArea::show_content`. The port keeps the contract, and both switches stay views of the layout.
 
-| file | conflict | resolution |
-|---|---|---|
-| `.github/workflows/packaging-lint.yml`, `windows-arm64.yml` | modify/delete | Kept deleted (fork has no CI); removed in the chore commit. Not resurrected. |
-| `Cargo.lock` | content | Took upstream's lock; cargo re-resolved it. `craft-media` now points at `C0craft-libs` via the root `[patch]`. |
-| `crates/gpu/Cargo.toml` | content | `pollster = "1"` (upstream) kept with our `filmcraft-export` `default-features = true`. |
-| `crates/ui-egui/Cargo.toml` | content | `pollster = "1"` (upstream) kept with our `filmcraft-codecs` `default-features = true`. |
-| `crates/export/src/lib.rs` | restructured | Upstream split this file into `convert`, `encoders`, `format`, `registry`, `run`, `output`, `stats`. Took upstream's file; re-applied our feature-boundary lines in the new modules (`c0_codec_policy` module declaration, test-only factory imports split by feature). |
-| `crates/export/src/encoders.rs`, `format.rs`, `registry.rs`, `run.rs` | new layout | Re-applied as patch debt (see `PATCH-DEBT.md`). Pending-audio guard moved from `lib.rs` to `run.rs`. |
-| `crates/ui-egui/src/lib.rs` | restructured | Upstream moved `FilmcraftApp` to `lib.rs`/`app.rs`, and its update to `app/frame.rs`. Re-applied: `pub mod c0_host`, `c0` state field, `set_theme` palette hook, `ui.render` raise exemption. |
-| `crates/ui-egui/src/app/frame.rs`, `app/prefs.rs`, `app/control.rs`, `app.rs` | new layout | Re-applied the header/status/start-screen gates, the file-drop hook, the palette hook and the `ui.render` exemption. Uses upstream's `header::HEIGHT`. |
-| `crates/ui-egui/src/dock_ui.rs` | restructured | **Not ported.** Upstream replaced `dock::layout_with_actions` and `DockNode`/`Group` with `craft_ui::DockArea::show_content` and `craft_ui::docking::{Node, Layout}`. Our tool-mode/right-dock view is not re-applied. |
+- `c0_host/dock_modes.rs` works on `craft_ui::docking::Layout<PanelKind>` and `Node`. The Tools split is dropped
+  (hidden or floating) or its `FixedFirst`/`FixedSecond` width is raised to two columns; the right-dock split is set
+  to `FixedSecond(STRIP_W)`. Gutter actions from the view go through `View::settle`, which drops pinned gutters and
+  maps paths below a dropped Tools split. `PanelKind::compact()` is now a local `compact` (Tools, Audio Meters).
+- `dock_ui.rs` calls `dock_modes::view`, lays out the view, settles the actions, lowers `DockStyle::min_pane` to
+  `STRIP_W` only while the right dock is folded (craft-ui's 40 pt minimum otherwise clamps the strip), draws each
+  folded group as a strip from its `body` callback, then draws the palette and the flyout.
+- The real `ui.dock`, saved workspaces and preferences are never changed by the switches, as the tests require.
 
-Mistake during the merge, recovered: `git add -N .` on a conflicted index dropped the conflict stages; `checkout --theirs` then wrote empty files. Recovered by `git reset --hard HEAD` and a fresh merge. `fix` was never altered by it.
+Why not craft-ui's own iconic columns: `Column.iconic` only works in a window-edge `Node::Dock`. The factory
+workspaces are plain `Node::Split` trees, so an iconic fold would reshape the layout users save. The strip and
+flyout are therefore ours, drawn over the group's rectangle.
 
-## Compile status
+Test adaptations (no assertion removed or weakened):
+- `c0_tool_modes.rs`: `saved.root` becomes `saved`, `saved.root.contains` becomes `saved.contains(&..)`,
+  `ui.floating` becomes `ui.dock.floating`.
+- `c0_right_dock.rs`: `Layout::contains` takes a reference; `activate` becomes
+  `apply(Action::Activate { .. })`.
 
-- `filmcraft-export`: `cargo check` clean with default features (`patent-codecs`), and clean with `--no-default-features` after gating the H.264-only imports, helpers and the `Yuv420` alias.
-- `filmcraft-ui-egui`: fails with 4 resolution errors, all in `c0_host/dock_modes.rs`:
-  - `crate::dock::DockNode`, `crate::dock::Group` are gone upstream.
-  - `SplitSize` is now `craft_ui::layout::SplitSize` (`FixedFirst`/`FixedSecond`, not `FixedA`/`FixedB`).
-  - `PanelKind::compact()` no longer exists (our definition was Tools and AudioMeters; it can move into `dock_modes.rs`).
-  - `FilmcraftApp::panel_body` no longer exists (it can become a helper in `dock_modes.rs`, doing what the old method did: `panels::show` into a child of the content rect).
-  Rustc stops at name resolution, so type errors in the rest of `c0_host` are not yet known.
+## Tests
 
-## Why the dock port is blocked
+`cargo test -p filmcraft-ui-egui --no-fail-fast` (second run, after the fixes), `EXIT=0`:
 
-Our `dock_modes.rs` is a view layer over the old dock tree: it clones and edits `DockNode` splits, derives strip rectangles from laid-out `Group`s (`path`, `rect`, `panels`, `active`, `content`), and settles resize actions against the real tree.
-Upstream's `DockArea` lays out the tree internally and returns only actions, focus and hit rectangles. Rebuilding group rectangles from `Hit` rectangles (the locked craft-ui `92d392c` exposes `hit_rects`, `Group<P>` without rectangles) is a new geometry layer, not a rename.
-The tests `tests/c0_tool_modes.rs`, `c0_right_dock.rs`, `c0_host.rs` and `c0_render.rs` depend on that layer.
-Each compile cycle is queuing at the shared gate for 20 to 30 minutes, so the port cannot be finished and verified in this session.
+| target | passed | failed | ignored |
+|---|---:|---:|---:|
+| lib | 246 | 0 | 0 |
+| c0_hidden_ui_pass | 2 | 0 | 0 |
+| c0_host | 15 | 0 | 0 |
+| c0_render | 6 | 0 | 0 |
+| c0_right_dock | 7 | 0 | 0 |
+| c0_tool_modes | 9 | 0 | 0 |
+| it (`tests/it`) | 561 | 0 | 5 |
+| play_ahead | 6 | 0 | 0 |
+| robustness_ui | 3 | 0 | 0 |
 
-## PATCH-DEBT
+Upstream-red: none, since nothing failed. The pure-upstream worktree run was not needed.
 
-- Before (`c0/main` vs `7d8dd5ae`): 41 files, +283 / -70. Ratchet 283.
-- After (fix HEAD vs `176e6a9c`): 48 files, +303 / -79. The dock port is pending, so `dock_ui.rs` is not in this count.
-- The table in `PATCH-DEBT.md` now lists the eight files that were missing (encoders, format, registry, run, app.rs, app/frame.rs, app/prefs.rs, app/control.rs).
-- +20 lines over the ratchet are forced by upstream's moved hooks (the trait surface and factory gating for the codec-free build) and the new UI hook sites. This is not yet fully justified; it must be re-checked after the dock port.
-- No patch has been dropped. Upstream's pending-audio fix made our `export_here` guard equivalent; the guard is kept (it still refuses a synchronous export while web media loads), so nothing is removed.
+First run, before the fixes: 3 right-dock tests failed. The strip was 40 pt wide, from craft-ui's `min_pane`, and
+the flyout lacked its `panel.<Kind>` id. Both are fixed in the second run above.
 
-## Tests (not run; blocked)
+`cargo test -p filmcraft-web --no-fail-fast`, `EXIT=0`: `it` 8 passed, 0 failed; the other targets have 0 tests.
 
-- `cargo test -p filmcraft-ui-egui`, `-p filmcraft-web`, and c0 test crates: **not run**. Blocked: ui-egui does not compile.
-- `filmcraft-export` tests: not run (not in the required list; can run once the gate is free).
-- Upstream-red list: **not determined** (needs the pure-upstream worktree run after the port).
-- wasm (`cargo check --target wasm32-unknown-unknown` for the web app), release wasm size, clippy: **not run**.
+`cargo check -p filmcraft-web --target wasm32-unknown-unknown`, `EXIT=0`, no errors.
 
-## Upstream changes (plain words, 129 non-merge commits since `7d8dd5ae`)
+`c0/filmcraft-host/build.sh` (`cargo xtask web --page-control --no-default-features`), `EXIT=0`, output
+`wasmBytes: 34808736`, `totalBytes: 35011300`, build `3848ada0c946b15c`.
 
-- Export: the export crate was split into modules (`convert`, `encoders`, `format`, `registry`, `run`, `output`, `stats`, `still_encode`). Pending-audio handling is now in `job.rs`; a `prepare_ahead` hook and `media_start` were added to the encoder trait; the H.264 encoder was sped up without changing its output.
-- Dock/UI: the docking moved into `craft_ui` (`DockArea`, `Layout`, `Node` with a `Stack` variant, `Hit`). Saved workspaces load fixed split sizes as ratios; workspace layouts are saved alongside the new format. The UI crate was split into `app/` modules.
-- Installer: per-user ArtCraft folder by default; a `test-install-policy.ps1`; scope policy.
-- Fixes: the `ui.render`/hidden-window handling (see our control-channel hunk); pending-audio export fixes (`aac_out`, `audio_out`, `job`).
-- Not enumerated: the full command and menu list. No new upstream commands or menus were verified against the Core Agent verbs (not done).
+**Wasm size: FAILS the cap.** 34808736 bytes against 33554432: **1254304 bytes over** (3.7%). The page build itself
+succeeds; the size proof does not pass. No earlier page build size is recorded in this tree, so I cannot say how much
+of this overrun the upstream merge already had and how much the dock port adds. Measuring that needs a pure-upstream
+`176e6a9c585f` page build for comparison, which was not run.
 
-## Clashes with our UI (not yet resolved)
+Load (`/proc/loadavg`): before the page build 28.14 35.07 31.25; after 11.68 16.34 14.08.
 
-- Home screen and community links: `header.rs` and `links.rs` hunks are re-applied; the header height now comes from upstream's `header::HEIGHT` rather than our old 38.0 literal.
-- Tool modes and right dock: the whole `dock_modes` view must be ported (see above). Until then, our default layout is upstream's and the Tool-mode switches have no effect.
-- Start screen (`import_mode`): our gate is kept; upstream's `Import` mode now falls through to the dock when the start screen is off.
-- Theme: `theme::host::resolve` is wired in `set_theme`. The palette override is in `theme/host.rs`; no conflict found in upstream's theme.rs.
-- Agent server and file drop: `c0_host::files::show` is called from the frame; the agent-server control paths are not re-verified.
+## PATCH-DEBT (after)
 
-## Assumptions I could not confirm
+Measured `git diff --numstat --diff-filter=M 176e6a9c585f HEAD -- . ':!c0'`: **49 files, +345 / -85**.
+Before the port (303 / 79 in 48 files, dock port pending): **+42 lines over that measure**, almost all in
+`crates/ui-egui/src/dock_ui.rs` (42 / 6) and the test-adaptation hunks.
+Ratchet 283. The excess over the ratchet is now **+62**. It is not justified yet: the dock hooks in `dock_ui.rs`
+are the cost of the port, and they must be re-checked when the next upstream pull moves `dock_ui.rs` again.
 
-- That `craft_ui` at the locked revision `92d392c` is the one the fork builds against (it is; the lock file was re-resolved by cargo, not edited by hand).
-- That the codec-free build is the page's build configuration (the page build was not run).
-- That the 1x1 PNG placeholders satisfy `brand.rs` (they are decoded only if the brand logo is shown; not verified at runtime).
-- That `c0_host/dock_modes.rs` tests can be ported to `craft_ui`'s `Layout`/`Node` without weakening the assertions (not attempted).
+## Clashes with our UI
 
-LANE-BLOCKED filmcraft ui-egui dock port: c0_host/dock_modes.rs and dock_ui.rs depend on the removed DockNode/Group layout API; the group-geometry replacement is not built, so ui-egui does not compile and no UI tests, wasm build or clippy ran.
+- Home screen and community links: `header.rs` and `links.rs` hunks are re-applied; the header height comes from
+  upstream's `header::HEIGHT`.
+- Tool modes and right dock: ported as above. The flyout and strip are ours; their geometry is the group rectangle
+  upstream lays out, with the tab header covered.
+- Start screen (`import_mode`): our gate is kept; upstream's `Import` mode falls through to the dock.
+- Theme: `theme::host::resolve` is wired in `set_theme`.
+
+## Assumptions
+
+- The folded strip covers the tab header by painting over it from the group's `body` callback; upstream draws the
+  squeezed header first. The tests check geometry and pass; a visual check of the folded header is not done.
+- The 1x1 PNG placeholders satisfy `brand.rs` (not verified at runtime).
+- `craft_ui` at `92d392c` is the one the fork builds against (cargo re-resolved the lock, not hand-edited).
