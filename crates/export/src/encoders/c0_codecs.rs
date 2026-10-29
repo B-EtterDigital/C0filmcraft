@@ -2,11 +2,11 @@
 //! of `c0_codec_policy` without it. `encoders` re-exports the factories.
 
 #[cfg(feature = "patent-codecs")]
-use super::convert::{rgba_to_yuv420_8, rgbf_to_yuv420_8};
+use crate::convert::{Matrix, rgba_to_yuv420_8, rgbf_to_yuv420_8};
 #[cfg(feature = "patent-codecs")]
-use super::format::{DEFAULT_CRF, H264Pass};
+use crate::format::{DEFAULT_CRF, H264Pass};
 #[cfg(feature = "patent-codecs")]
-use super::registry::PrepareAhead;
+use crate::registry::PrepareAhead;
 #[cfg(feature = "patent-codecs")]
 use super::*;
 
@@ -85,7 +85,7 @@ fn h264_input(f: &EncoderFrame, signal: ColorSignal, y: &mut Vec<u8>, u: &mut Ve
     match f.hdr {
         Some(rgb) => {
             let (kr, kb) = signal.kr_kb();
-            rgbf_to_yuv420_8(rgb, f.width as usize, f.height as usize, kr, kb, y, u, v)
+            rgbf_to_yuv420_8(rgb, f.width as usize, f.height as usize, Matrix::new(kr, kb), y, u, v)
         }
         None => rgba_to_yuv420_8(f.rgba, f.width as usize, f.height as usize, y, u, v),
     }
