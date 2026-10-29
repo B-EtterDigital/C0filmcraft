@@ -120,7 +120,7 @@ How the hooks moved:
 
 Left in upstream files, and why (they are the hook sites, not moved logic): `registry.rs` (26) declares the browser-encoder trait hooks, `job.rs` (21) polls readiness and final timing, `import.rs` (16) and `audio.rs` (18) gate code that stays in upstream functions, and `Cargo.lock` (6) holds the craft-media fork source and the edges of our `filmcraft-format`, `filmcraft-export` and `base64` dependencies. No c0 crate exists to move the dependencies into, so they stay.
 
-Tests (final tree, `d0ad9f01`; logs under `/srv/smoac/build/sow-fix-filmcraft-20261028-logs/final/`):
+Tests (tree `d0ad9f01`, logs under `/srv/smoac/build/sow-fix-filmcraft-20261028-logs/final/`; after the literal wrap in `884f74fb` the ui-egui tests and the default wasm check were re-run, same counts, logs under `.../recheck/`):
 
 | command | result |
 |---|---|
