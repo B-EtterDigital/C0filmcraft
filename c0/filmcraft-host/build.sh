@@ -7,6 +7,8 @@ export BINARYEN_CORES=2
 # Size tuning for the guest page only (the 32 MiB cap in the C0X pin). Codec hot loops keep opt-level 3, so only
 # fat LTO and dropping debug info here (34.8 MB -> under the cap was the 2026-10-28 need).
 export CARGO_PROFILE_RELEASE_LTO=fat
+# fat LTO alone left it at 34.8 MB; the web build has no patent codecs (the browser decodes), so size-optimise it.
+export CARGO_PROFILE_RELEASE_OPT_LEVEL=s
 export CARGO_PROFILE_RELEASE_STRIP=debuginfo
 if [[ -n "${CRAFT_FONTS_DIR:-}" && ! -d "$CRAFT_FONTS_DIR" ]]; then
   echo "CRAFT_FONTS_DIR is missing; using bundled/system fonts (no optional craft-fonts glyphs)." >&2
