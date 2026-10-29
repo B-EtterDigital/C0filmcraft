@@ -100,13 +100,13 @@ are the cost of the port, and they must be re-checked when the next upstream pul
 Goal: the patch debt back to the ratchet (283) without losing a feature. Measured with
 `git diff --numstat --diff-filter=M 176e6a9c585f HEAD -- . ':!c0'`, the count the daily check uses.
 
-**Total: 345 added / 85 removed lines in 47 text files before (`55979088`); 256 added / 499 removed in 47 text files after (`HEAD`). Ratchet: 256** (was 283, the check refused the candidate at 345).
+**Total: 345 added / 85 removed lines in 47 text files before (`55979088`); 255 added / 497 removed in 47 text files after (`HEAD`). Ratchet: 255** (was 283, the check refused the candidate at 345).
 
 Commits on `fix`:
 
 | commit | what |
 |---|---|
-| `e96302fd` | `refactor(c0): move the dock and Home hooks out of dock_ui.rs and header.rs` (dock_ui 42 → 10, header 15 → 3) |
+| `e96302fd` | `refactor(c0): move the dock and Home hooks out of dock_ui.rs and header.rs` (dock_ui 42 → 9, header 15 → 3) |
 | `0d9c3d02` | `refactor(c0): move the H.264, HEVC and AAC hooks of codecs and export into c0 modules` (video 15 → 2, encoders 19 → 5, registry and lib.rs import hunks reverted) |
 | `d0ad9f01` | `chore(c0): use the base64 release the lock already holds` (Cargo.lock 16 → 6) |
 
@@ -145,7 +145,7 @@ Per-file numstat (added / removed, text files):
 
 | file | before (`55979088`) | after (`HEAD`) |
 |---|---:|---|
-| `crates/ui-egui/src/dock_ui.rs` | +42 / -6 | +10 / -5 |
+| `crates/ui-egui/src/dock_ui.rs` | +42 / -6 | +9 / -3 |
 | `crates/export/src/encoders.rs` | +19 / -3 | +5 / -198 |
 | `crates/codecs/src/video.rs` | +15 / -0 | +2 / -225 |
 | `crates/ui-egui/src/header.rs` | +15 / -13 | +3 / -14 |

@@ -42,7 +42,7 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/ui-egui/Cargo.toml` | +7 / -1 | Forward codec feature; project file format (`filmcraft-format`) and base64 0.23 (the locked release) for the host byte contract | Use the app's own file format and host byte contract | no |
 | `crates/ui-egui/src/control.rs` | +2 / -0 | One c0.* dispatch arm; one `ui.render` arm | Reuse the existing control queue | no |
 | `crates/ui-egui/src/credits.rs` | +2 / -2 | Host-aware contributor labels | Keep author credit while removing GitHub links | no |
-| `crates/ui-egui/src/dock_ui.rs` | +10 / -5 | `dock_modes::begin` lays out the frame (the tool-mode and right-dock views, and a folded dock's pane width), `fold` draws a folded group as its strip, `settle` maps the gutter actions and `after` draws the palette and flyout | The tool modes and the foldable right dock are views of the dock; at default values the layout is the real tree as before | no |
+| `crates/ui-egui/src/dock_ui.rs` | +9 / -3 | `dock_modes::begin` lays out the frame (the tool-mode and right-dock views, and a folded dock's pane width), `fold` draws a folded group as its strip, `settle` maps the gutter actions and `after` draws the palette and flyout | The tool modes and the foldable right dock are views of the dock; at default values the layout is the real tree as before | no |
 | `crates/ui-egui/src/header.rs` | +3 / -14 | Home is `c0_host::chrome::home`; read Home, community and menu switches | Hide host-owned and promotional chrome | no |
 | `crates/ui-egui/src/lib.rs` | +2 / -0 | Declare the host module and its state field; the runtime palette lives in `theme::host` | Host state; the frameless render must not present a window | no |
 | `crates/ui-egui/src/links.rs` | +3 / -0 | Suppress host-hidden community URLs | Cover direct opener calls as well as visible widgets | no |
@@ -53,8 +53,8 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/ui-egui/src/theme.rs` | +1 / -0 | Declare host palette module | Expose the context-local colour override | no |
 | `xtask/src/main.rs` | +6 / -0 | Forward opt-in page-control/no-default-features arguments | Build via upstream's own cargo/wasm-bindgen pipeline | no |
 
-Total: 256 added lines in 47 upstream text files (measured 2026-10-29, after the debt pass; see the paragraph below).
-Ratchet: 256
+Total: 255 added lines in 47 upstream text files (measured 2026-10-29, after the debt pass; see the paragraph below).
+Ratchet: 255
 Re-measured 2026-10-26 after the upstream merge (egui 0.37 port, update prompt): 281, unchanged file for file. Our header Home gate, status-bar gate, tool columns and the craft-media [patch] were kept; upstream dropped its own no-status-bar job poll (it polls every frame now), so that line left with it, not with us.
 Re-measured 2026-10-26 after the hidden-page fix: 283 added lines in 41 modified upstream files (`git diff --numstat --diff-filter=M origin/main -- . ':!c0'`). +2 in `apps/filmcraft-web/src/lib.rs`: the `raw_input_hook` seam that lets the page bridge run a `ui.*` request's UI pass while the guest view is hidden under the host's start cover (`ui.set {theme}` timed out with "no UI pass ran before the control request deadline"). Everything else is in `page_control*` and a c0 test.
 
@@ -73,10 +73,10 @@ Re-measured 2026-10-29 on upstream `176e6a9c585f` after the tool-strip and right
 49 files, +345 / -85. Ratchet 283 is exceeded by +62. The growth is in `crates/ui-egui/src/dock_ui.rs` (42 / 6 lines: the view, the settled gutter actions, the folded-group body, the palette and flyout hooks, and the `min_pane` lift while folded) and in the test-adaptation hunks. The port is not yet re-justified against the ratchet; it must be, at the next upstream pull that touches `dock_ui.rs`.
 
 Re-measured 2026-10-29, debt pass on upstream `176e6a9c585f` (`git diff --numstat --diff-filter=M 176e6a9c585f HEAD -- . ':!c0'`):
-256 added / 499 removed lines in 47 text files (the two brand PNGs are binary and not counted). Ratchet 283 is met with 27 lines to spare; the
-ratchet is now 256. The growth that was not justified is paid back by moving code out of upstream files, with one hook line per site:
+255 added / 497 removed lines in 47 text files (the two brand PNGs are binary and not counted). Ratchet 283 is met with 28 lines to spare; the
+ratchet is now 255. The growth that was not justified is paid back by moving code out of upstream files, with one hook line per site:
 
-- `crates/ui-egui/src/dock_ui.rs` 42 → 10 added: the view, fold, settle and flyout logic is in `c0_host/dock_modes.rs` behind a per-frame `Frame` on the host.
+- `crates/ui-egui/src/dock_ui.rs` 42 → 9 added: the view, fold, settle and flyout logic is in `c0_host/dock_modes.rs` behind a per-frame `Frame` on the host.
 - `crates/ui-egui/src/header.rs` 15 → 3 added: the Home button is `c0_host/chrome.rs`; the community and menu gates are one-line changes.
 - `crates/codecs/src/video.rs` 15 → 2 added: the H.264 and HEVC decoders are in `video/c0_video.rs`.
 - `crates/export/src/encoders.rs` 19 → 5 added: the AAC and H.264 encoders and factories are in `encoders/c0_codecs.rs`.
