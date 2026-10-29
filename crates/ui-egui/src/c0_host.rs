@@ -1,6 +1,7 @@
 //! C0vid guest contract. Presentation switches are session-local and default to upstream.
 
 pub mod ai;
+pub mod chrome;
 pub mod dock_modes;
 pub mod files;
 mod limits;
@@ -35,6 +36,7 @@ impl Default for Chrome {
 pub struct Host {
     pub chrome: Chrome,
     pub dock: dock_modes::Modes,
+    pub frame: dock_modes::Frame,
     pub pending: Option<files::Pending>,
 }
 

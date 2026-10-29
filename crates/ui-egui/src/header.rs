@@ -28,20 +28,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Maximized(!max));
     }
     let mut x = rect.min.x + if app.integrated_titlebar { 104.0 } else { 14.0 };
-    if app.c0.chrome.start_screen {
-        // Home
-        let home = Rect::from_center_size(pos2(x + 10.0, rect.center().y), vec2(26.0, 26.0));
-        let hresp = ui.interact(home, egui::Id::unique("hdr-home"), Sense::click()).on_hover_text(tl!("Home"));
-        app.auto.add("header.home", home, "Home");
-        if hresp.hovered() {
-            p.rect_filled(home, 4.0, t.hover);
-        }
-        icons::paint(&p, home.shrink(5.0), Icon::Home, if hresp.hovered() { t.text } else { t.text_dim });
-        if hresp.clicked() {
-            app.ui.mode = Mode::Import;
-        }
-        x = home.max.x + 16.0;
-    }
+    x = crate::c0_host::chrome::home(app, ui, rect, x);
     // Mode tabs (14 pt; active = primary text with a 2 pt underline under the label)
     for (m, label, shown) in [(Mode::Import, "Import", tl!("Import")), (Mode::Edit, "Edit", tl!("Edit")), (Mode::Export, "Export", tl!("Export"))] {
         let active = app.ui.mode == m;

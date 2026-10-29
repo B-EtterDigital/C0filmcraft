@@ -12,7 +12,7 @@
 //!   groups is drawn as an icon strip over its own rectangle; an icon opens its panel in a flyout over
 //!   the canvas, so nothing else moves.
 
-use craft_ui::docking::{Action, Layout, Node};
+use craft_ui::docking::{Action, DockStyle, Layout, Node};
 use craft_ui::layout::{SplitAxis, SplitSize};
 use egui::{Align2, Rect, Sense, Stroke, StrokeKind, Vec2, pos2, vec2};
 use serde_json::Value;
@@ -324,6 +324,58 @@ impl View {
             true
         });
     }
+}
+
+// ---------------------------------------------------------------- the dock area's hooks
+
+/// What the switches did to this frame of the dock: the view, and the strips drawn for it. Set by
+/// [`begin`], read by [`settle`] and taken by [`after`].
+#[derive(Default)]
+pub struct Frame {
+    view: Option<View>,
+    strips: Vec<Strip>,
+}
+
+/// Starts the dock's frame: the layout to draw (the real one at default switches) and, for a folded
+/// right dock, the squeeze craft-ui's minimum pane width would otherwise undo.
+pub fn begin(app: &mut FilmcraftApp, style: &mut DockStyle) -> Layout<PanelKind> {
+    let view = view(app, &app.ui.dock);
+    let layout = view.as_ref().map_or_else(|| app.ui.dock.clone(), |view| view.layout.clone());
+    // craft-ui keeps every group at least `min_pane` wide; a folded right dock is only a strip.
+    if view.as_ref().is_some_and(|view| !view.folded.is_empty()) {
+        style.min_pane = STRIP_W;
+    }
+    app.c0.frame = Frame { view, strips: Vec::new() };
+    layout
+}
+
+/// Draws the group of `panel` as its icon strip when the right dock is folded; false when the
+/// panel is drawn as usual.
+pub fn fold(app: &mut FilmcraftApp, ui: &mut egui::Ui, panel: &PanelKind, frame: Rect) -> bool {
+    let Some(folded) = app.c0.frame.view.as_ref().map(|view| &view.folded) else { return false };
+    let Some(index) = folded.iter().position(|group| group.contains(panel)) else { return false };
+    let group = folded[index].clone();
+    let rect = strip(app, ui, index, &group, frame);
+    app.c0.frame.strips.push(Strip { panels: group, rect });
+    true
+}
+
+/// The gutter actions of this frame, made to fit the real layout.
+pub fn settle(app: &FilmcraftApp, mut actions: Vec<Action<PanelKind>>) -> Vec<Action<PanelKind>> {
+    if let Some(view) = &app.c0.frame.view {
+        view.settle(&mut actions);
+    }
+    actions
+}
+
+/// Once the dock is drawn: the floating palette, and the flyout of a folded right dock.
+pub fn after(app: &mut FilmcraftApp, ui: &mut egui::Ui, body: Rect, bodies: &[(PanelKind, Rect, egui::LayerId)]) {
+    let Frame { view, strips } = std::mem::take(&mut app.c0.frame);
+    if view.as_ref().is_some_and(|view| view.palette()) {
+        let program = bodies.iter().find(|(panel, _, _)| *panel == PanelKind::Program).map(|(_, rect, _)| *rect);
+        palette(app, ui, body, program);
+    }
+    flyout(app, ui.ctx(), &strips, body);
 }
 
 // ---------------------------------------------------------------- the floating tool palette
