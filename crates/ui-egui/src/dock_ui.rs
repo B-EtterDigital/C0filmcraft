@@ -253,7 +253,8 @@ impl FilmcraftApp {
         // Timeline's sequence tabs), drawn before its bodies, carry that window too.
         self.auto.windows =
             self.ui.dock.floating.iter().enumerate().map(|(index, window)| (DockArea::<PanelKind>::window_viewport(area_id(), window.id), index)).collect();
-        let mut content = FilmContent { app: self, seqs, seq_width, tokens: t, seq_actions: Vec::new(), menu: None, bodies: Vec::new(), restore_workspace: false };
+        let mut content =
+            FilmContent { app: self, seqs, seq_width, tokens: t, seq_actions: Vec::new(), menu: None, bodies: Vec::new(), restore_workspace: false };
         let output = area.show_content(&mut child, &layout, &style, &mut content);
         let FilmContent { seq_actions, mut menu, bodies, restore_workspace, .. } = content;
         let actions = dock_modes::settle(self, output.actions);
