@@ -246,7 +246,7 @@ pub enum H264Pass {
     #[default]
     Single,
     First,
-    Second(c0_codec_policy::PassStats),
+    Second(crate::c0_codec_policy::PassStats),
 }
 
 /// Every Export-mode setting. Serialized in camelCase; every field is optional on input.

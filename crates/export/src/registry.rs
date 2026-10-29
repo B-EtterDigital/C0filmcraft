@@ -52,7 +52,7 @@ pub trait VideoEncoder: Send {
         None
     }
     /// First-pass statistics of a two-pass encode (H.264).
-    fn pass_stats(&self) -> Option<c0_codec_policy::PassStats> {
+    fn pass_stats(&self) -> Option<crate::c0_codec_policy::PassStats> {
         None
     }
     /// Work on a rendered picture that needs nothing of the encoder's state (H.264: the colour
