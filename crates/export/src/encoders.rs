@@ -2,8 +2,7 @@ use super::convert::{Matrix, Planes444, rgba_to_yuv422_10, rgbf_to_yuv422_10, to
 use super::format::{ColorSignal, ExportSettings, Format};
 use super::registry::{AudioEncoder, EncodedPacket, EncoderFrame, VideoEncoder};
 use super::stats::{Stage, timed};
-use super::{BitrateMode, ExportError, FrameRate, H264Profile, Result, SampleEntry, SampleFormat};
-use std::sync::{Arc, Mutex, PoisonError};
+use super::{ExportError, FrameRate, Result, SampleEntry, SampleFormat};
 mod c0_codecs;
 pub(crate) use c0_codecs::*;
 

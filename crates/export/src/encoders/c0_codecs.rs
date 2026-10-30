@@ -9,9 +9,13 @@ use crate::format::{DEFAULT_CRF, H264Pass};
 use crate::registry::PrepareAhead;
 #[cfg(feature = "patent-codecs")]
 use super::*;
+#[cfg(feature = "patent-codecs")]
+use crate::{BitrateMode, H264Profile};
+#[cfg(feature = "patent-codecs")]
+use std::sync::{Arc, Mutex, PoisonError};
 
 #[cfg(not(feature = "patent-codecs"))]
-pub(crate) use super::c0_codec_policy::{aac_factory, h264_factory};
+pub(crate) use crate::c0_codec_policy::{aac_factory, h264_factory};
 
 /// AAC-LC (our encoder), 320 kbps stereo by default.
 #[cfg(feature = "patent-codecs")]
