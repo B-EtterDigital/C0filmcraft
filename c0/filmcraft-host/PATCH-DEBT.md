@@ -27,7 +27,7 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/export/src/aac_out.rs` | +3 / -0 | Reject pending synchronous audio before finishing output | Avoid silently truncated audio files | yes, as is |
 | `crates/export/src/audio_out.rs` | +10 / -0 | Preserve cursors on pending audio; reject incomplete loudness passes | Avoid lost samples and non-progressing measurement on wasm | yes, as is |
 | `crates/export/src/job.rs` | +21 / -7 | Poll browser readiness and final metadata/timing; correct pending-audio docs | Drain asynchronous output without losing audio or changing default packet ordering | mixed: pending-audio fix yes, as is; host encoder hooks no |
-| `crates/export/src/encoders.rs` | +5 / -198 | Declare and re-export `encoders/c0_codecs.rs` (AAC and H.264 encoders, factories, `h264_slices`); three import lines without the patent-only names | Build without software AAC/H.264; codec-free factories come from `c0_codec_policy` | no |
+| `crates/export/src/encoders.rs` | +6 / -199 | Declare and re-export `encoders/c0_codecs.rs` (AAC and H.264 encoders, factories, `h264_slices`); four import lines without the patent-only names (the fourth since 20261030, when upstream replaced `use super::*` with an explicit list naming `BitrateMode`, `H264Profile` and `std::sync` types only the moved encoders use) | Build without software AAC/H.264; codec-free factories come from `c0_codec_policy` | no |
 | `crates/export/src/format.rs` | +5 / -4 | Codec-free default format (Motion JPEG); `has_builtin_encoder` gates H.264/AAC; `H264Pass` takes the `c0_codec_policy` stat type | Quick Export defaults to a format that exists | no |
 | `crates/export/src/registry.rs` | +26 / -1 | Host hooks on the traits (`ready`, `finish_ready`, `final_sample_entry`, `final_timing`, `asynchronous`); `PassStats` from `c0_codec_policy` | Browser encoders need readiness; upstream has no such hook | no |
 | `crates/export/src/run.rs` | +3 / -0 | Synchronous pending-audio guard in `export_here` (moved here upstream) | Refuse a truncated synchronous export while media loads | yes, as is |
@@ -53,8 +53,8 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/ui-egui/src/theme.rs` | +1 / -0 | Declare host palette module | Expose the context-local colour override | no |
 | `xtask/src/main.rs` | +6 / -0 | Forward opt-in page-control/no-default-features arguments | Build via upstream's own cargo/wasm-bindgen pipeline | no |
 
-Total: 255 added lines in 47 upstream text files (measured 2026-10-29, after the debt pass; see the paragraph below).
-Ratchet: 255
+Total: 256 added lines in 47 upstream text files (measured 2026-10-30: 255 after the 2026-10-29 debt pass, plus 1 forced by upstream's explicit imports in `encoders.rs`).
+Ratchet: 256
 Re-measured 2026-10-26 after the upstream merge (egui 0.37 port, update prompt): 281, unchanged file for file. Our header Home gate, status-bar gate, tool columns and the craft-media [patch] were kept; upstream dropped its own no-status-bar job poll (it polls every frame now), so that line left with it, not with us.
 Re-measured 2026-10-26 after the hidden-page fix: 283 added lines in 41 modified upstream files (`git diff --numstat --diff-filter=M origin/main -- . ':!c0'`). +2 in `apps/filmcraft-web/src/lib.rs`: the `raw_input_hook` seam that lets the page bridge run a `ui.*` request's UI pass while the guest view is hidden under the host's start cover (`ui.set {theme}` timed out with "no UI pass ran before the control request deadline"). Everything else is in `page_control*` and a c0 test.
 
