@@ -328,7 +328,7 @@ mod ai {
             identity: None,
         };
         let mut p = Project::new("fixture");
-        let item = p.add_item("scene", Label::Iris, ItemKind::Media(clip), None);
+        let item = p.add_item("scene", Label::Iris, ItemKind::Media(Box::new(clip)), None);
         let seq = p.new_sequence("s", SequenceSettings { width: 128, height: 72, frame_rate: rate, ..Default::default() }, 1, 0, None);
         let v = p.make_track_item(item, TrackKind::Video, Tick::ZERO, TimeRange::new(Tick::ZERO, dur), rate).unwrap();
         p.sequence_mut(seq).unwrap().video_tracks[0].items.push(v);
