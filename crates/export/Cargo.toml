@@ -11,13 +11,14 @@ workspace = true
 
 [features]
 default = ["patent-codecs"]
-patent-codecs = ["dep:filmcraft-h264enc", "dep:filmcraft-aac"]
+patent-codecs = ["dep:filmcraft-h264enc", "dep:filmcraft-aac", "filmcraft-codecs/patent-codecs"]
 
 [dependencies]
 filmcraft-time = { workspace = true }
 filmcraft-frame = { workspace = true }
 filmcraft-color = { workspace = true }
 filmcraft-media = { workspace = true }
+filmcraft-codecs = { workspace = true }
 filmcraft-project = { workspace = true }
 filmcraft-render = { workspace = true }
 filmcraft-audio-dsp = { workspace = true }
@@ -40,4 +41,3 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 
 [dev-dependencies]
 filmcraft-testkit = { workspace = true }
-filmcraft-codecs = { workspace = true, default-features = true }

@@ -1,6 +1,6 @@
 # Where FilmCraft falls short of Premiere Pro
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** major (new file: ROADMAP's "Where we are lacking" re-measured against Premiere Pro 26.5.2 and the open issue list) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-26 · **Change:** minor (G13: optional binary transparency in animated GIF exports) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
 
 Every known shortfall, one entry each, ranked by what most stops an editor using FilmCraft for real
 work. This is the work list: agents should prefer it over adding checklist items. Numbers are in
@@ -132,8 +132,7 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 - **Evidence:** export stopped producing frames with iPhone HEVC clips on Linux (#480); WebM shows
   black (#432); only the first audio track imported (#397, #416, #601; multi-stream support landed
   in #361, reporters not yet confirmed); bitrate target produced 6.1 Mb/s for 40 (#371).
-- **Done when:** corpus fetched pinned and sha256-verified (as PhotoCraft's `cargo xtask corpus`,
-  craftrules `standards/test-corpora.md`), runs nightly, ≥ 50 files. **40–70 h.**
+- **Done when:** corpus fetched pinned and sha256-verified (as PhotoCraft's `cargo xtask corpus`), runs nightly, ≥ 50 files. **40–70 h.**
 
 ## G7. No measured parity tool in CI
 
@@ -229,6 +228,10 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 - **Have:** PNG, TIFF, BMP, JPEG, Targa and DPX (10-bit) image sequences (#779); OpenEXR
   sequences (half float, linear; uncompressed, RLE, ZIPS or ZIP; #806, #874); AAC Audio
   (audio-only `.m4a`, or ADTS `.aac`; #814); ProRes 4444 / 4444 XQ in the export UI (#342).
+- **GIF transparency:** Include Alpha Channel preserves binary transparency (#3396), with an
+  explicit 128/255 alpha threshold; decoded synthetic animation tests cover moving transparent
+  regions and clearing prior frames. Partial transparency remains a GIF limitation. See the
+  [export README](../crates/export/README.md). No readiness estimate changes.
 - **Estimate:** 60–110 h. Doc: [file-format-parity.md](file-format-parity.md).
 
 ## G14. Localization: 3 of the 12 key languages missing (Hindi, Arabic, Vietnamese)
@@ -323,3 +326,4 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 | 2026-10-12 | minor | G10: MP1 (`A_MPEG/L1`) in Matroska imports (#1402) |
 | 2026-10-12 | minor | G10: OpenEXR PXR24 import |
 | 2026-10-24 | minor | G8: dragging the cut on a transition's timeline in Effect Controls moves the cut, and the transition moves with it (#577) |
+| 2026-10-26 | minor | G13: optional GIF binary transparency, threshold and frame-disposal regression coverage (#3396); estimates unchanged |
