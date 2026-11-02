@@ -5,6 +5,9 @@ use crate::{Dialog, FilmcraftApp};
 
 pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     ctx.data_mut(|data| data.insert_temp(crate::c0_host::community_key(), app.c0.chrome.community_links));
+    crate::panels::marker_properties::show(app, ctx);
+    crate::panels::custom_colors::show(app, ctx);
+    crate::panels::palette_manager::show(app, ctx);
     crate::panels::media_dialogs::show(app, ctx);
     crate::panels::color_dialogs::show(app, ctx);
     crate::panels::clip_dialogs::show(app, ctx);
@@ -80,6 +83,12 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
         }
         Dialog::SequenceSettings => {
             if !crate::panels::sequence_settings::show(app, ctx) && app.dialog == Some(d) {
+                app.dialog = None;
+            }
+            return;
+        }
+        Dialog::ClipMismatch => {
+            if !crate::panels::clip_mismatch::show(app, ctx) && app.dialog == Some(d) {
                 app.dialog = None;
             }
             return;

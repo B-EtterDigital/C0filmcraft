@@ -1,0 +1,2 @@
+cargo::rerun-if-changed=/srv/smoac/build/film-fix-20261102/crates/ui-egui/../../contributors/contributors.json
+cargo::rerun-if-changed=/srv/smoac/build/film-fix-20261102/crates/ui-egui/../../contributors/people.toml

@@ -1,0 +1,8 @@
+/srv/smoac/build/film-fix-20261102/target-wasm/wasm32-unknown-unknown/debug/deps/icu_locale_fallback_data-f50ddb31d52daf74.d: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/mod.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/locale_likely_subtags_language_v1.rs.data /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/locale_parents_v1.rs.data
+
+/srv/smoac/build/film-fix-20261102/target-wasm/wasm32-unknown-unknown/debug/deps/libicu_locale_fallback_data-f50ddb31d52daf74.rmeta: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/mod.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/locale_likely_subtags_language_v1.rs.data /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/locale_parents_v1.rs.data
+
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/lib.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/mod.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/locale_likely_subtags_language_v1.rs.data:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_locale_fallback_data-2.3.0/src/../data/locale_parents_v1.rs.data:

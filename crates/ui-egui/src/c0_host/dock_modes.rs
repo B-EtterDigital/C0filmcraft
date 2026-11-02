@@ -118,16 +118,20 @@ pub fn columns(app: &FilmcraftApp, rect: Rect) -> usize {
     if app.c0.dock.toolbar_double && rect.width() >= DOUBLE_W { 2 } else { 1 }
 }
 
-/// Left edge of the `index`th tool button. One column is upstream's: centred in `rect`.
-pub fn column_x(rect: Rect, index: usize, columns: usize, size: f32) -> f32 {
-    let columns = columns.max(1);
-    let total = size * columns as f32 + TOOL_GAP * (columns - 1) as f32;
-    rect.center().x - total / 2.0 + (index % columns) as f32 * (size + TOOL_GAP)
+/// Where the `i`th of `n` tool buttons goes when the host asked for two columns and the panel is wide
+/// enough: rows of two, centred, from the top. `None` leaves the layout to upstream's `button_pos`;
+/// `Some(None)` means the button does not fit.
+pub fn button_pos(app: &FilmcraftApp, rect: Rect, i: usize, _n: usize) -> Option<Option<egui::Pos2>> {
+    let columns = columns(app, rect);
+    (columns >= 2).then(|| grid_pos(rect, i, columns))
 }
 
-/// How far down the next button sits after the `index`th: the row pitch once a row is full.
-pub fn advance(index: usize, columns: usize, pitch: f32) -> f32 {
-    if (index + 1).is_multiple_of(columns.max(1)) { pitch } else { 0.0 }
+/// The `i`th button of a centred grid of `columns`, from the top; `None` past the bottom of `rect`.
+fn grid_pos(rect: Rect, i: usize, columns: usize) -> Option<egui::Pos2> {
+    let total = TOOL_SIZE * columns as f32 + TOOL_GAP * (columns - 1) as f32;
+    let x = rect.center().x - total / 2.0 + (i % columns) as f32 * (TOOL_SIZE + TOOL_GAP);
+    let y = rect.min.y + TOOL_GAP + (i / columns) as f32 * (TOOL_SIZE + TOOL_GAP);
+    (y + TOOL_SIZE <= rect.max.y).then(|| pos2(x, y))
 }
 
 // ---------------------------------------------------------------- the layout's view
@@ -572,15 +576,15 @@ mod tests {
     }
 
     #[test]
-    fn one_column_is_upstreams_centre_and_two_columns_share_the_width() {
-        let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(64.0, 400.0));
-        assert_eq!(column_x(rect, 0, 1, TOOL_SIZE), rect.center().x - TOOL_SIZE / 2.0);
-        assert_eq!(column_x(rect, 5, 1, TOOL_SIZE), column_x(rect, 0, 1, TOOL_SIZE));
+    fn two_columns_share_the_width_in_rows_and_stop_at_the_bottom() {
         let wide = Rect::from_min_size(pos2(0.0, 0.0), vec2(DOUBLE_W, 400.0));
-        let (left, right) = (column_x(wide, 0, 2, TOOL_SIZE), column_x(wide, 1, 2, TOOL_SIZE));
-        assert_eq!(right - left, TOOL_SIZE + 4.0);
-        assert_eq!((left, right + TOOL_SIZE), (8.0, DOUBLE_W - 8.0));
-        assert_eq!((advance(0, 1, 36.0), advance(0, 2, 36.0), advance(1, 2, 36.0)), (36.0, 0.0, 36.0));
+        let (left, right) = (grid_pos(wide, 0, 2).unwrap(), grid_pos(wide, 1, 2).unwrap());
+        assert_eq!(right.x - left.x, TOOL_SIZE + 4.0);
+        assert_eq!((left.x, right.x + TOOL_SIZE), (8.0, DOUBLE_W - 8.0));
+        assert_eq!((left.y, right.y), (4.0, 4.0));
+        assert_eq!(grid_pos(wide, 2, 2).unwrap(), pos2(left.x, 4.0 + TOOL_SIZE + 4.0));
+        let short = Rect::from_min_size(pos2(0.0, 0.0), vec2(DOUBLE_W, 80.0));
+        assert!(grid_pos(short, 3, 2).is_some() && grid_pos(short, 4, 2).is_none());
     }
 
     #[test]
