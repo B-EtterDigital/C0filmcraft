@@ -57,7 +57,7 @@ impl crate::audio::PacketDecoder {
 pub fn aac_output_rate<'a>(asc: &[u8], _units: impl IntoIterator<Item = &'a [u8]>) -> Option<u32> {
     crate::c0_codec_policy::aac_core_rate(asc)
 }
-pub fn avc_presentation_order(_heads: &[Vec<u8>]) -> Option<Vec<i64>> {
+pub fn avc_presentation_order<H: AsRef<[u8]>>(_heads: impl IntoIterator<Item = H>) -> Option<Vec<i64>> {
     None
 }
 pub(crate) fn avc_format(config: &AvcConfig) -> Option<(u32, u32)> {

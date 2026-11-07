@@ -187,6 +187,16 @@ pub(crate) fn about(ui: &mut egui::Ui) {
     ui.label("MIT OR Apache-2.0. Fonts: Inter, Noto Serif and JetBrains Mono (SIL OFL 1.1).");
 }
 
+/// [`contributor`] for a table cell: the name as a link, or plain text while community links are
+/// hidden; the caller adds the hover text.
+pub(crate) fn contributor_link(ui: &mut egui::Ui, contributor: &crate::credits::Contributor, names: crate::credits::NameMode) -> egui::Response {
+    if ui.ctx().data(|data| data.get_temp::<bool>(community_key())).unwrap_or(true) {
+        ui.hyperlink_to(contributor.name(names), format!("https://github.com/{}", contributor.login))
+    } else {
+        ui.label(contributor.name(names))
+    }
+}
+
 pub(crate) fn community_key() -> egui::Id {
     egui::Id::unique("filmcraft-host-community")
 }
