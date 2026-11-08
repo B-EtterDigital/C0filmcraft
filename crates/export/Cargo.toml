@@ -30,6 +30,7 @@ filmcraft-dnx = { workspace = true }
 filmcraft-apv = { workspace = true }
 filmcraft-mxf = { workspace = true }
 filmcraft-aac = { workspace = true, optional = true }
+filmcraft-mp3enc = { workspace = true }
 filmcraft-flac = { workspace = true }
 filmcraft-h264enc = { workspace = true, optional = true }
 serde = { workspace = true }
