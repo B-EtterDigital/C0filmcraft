@@ -87,6 +87,7 @@ pub fn video_factory(format: Format, width: u32, height: u32, rate: FrameRate, s
             filmcraft_export::H264Profile::Baseline => 66,
             filmcraft_export::H264Profile::Main => 77,
             filmcraft_export::H264Profile::High => 100,
+            filmcraft_export::H264Profile::High10 => return Err(error("browser H.264 encodes 8-bit video only; pick the High, Main or Baseline profile".into())),
         };
         const DEFAULT_LEVEL: u8 = 51;
         let codec = format!("avc1.{profile:02x}00{:02x}", settings.h264_level.unwrap_or(DEFAULT_LEVEL));
