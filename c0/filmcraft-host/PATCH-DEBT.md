@@ -5,7 +5,7 @@ and c0 tests are additions rather than upstream patch debt.
 
 | File | Lines | What | Why | Offered upstream |
 |---|---:|---|---|---|
-| `Cargo.lock` | 6 (+6 / -3) | Lock host serialization/browser export dependency wiring; craft-media from our C0craft-libs fork | Keep builds reproducible | no |
+| `Cargo.lock` | 4 (+4 / -1) | Lock host serialization/browser export dependency wiring (`base64`, `filmcraft-format`, `filmcraft-export`); craft-media from our C0craft-libs fork (8e0e86c since 2026-11-10: upstream craft-libs 1b34eba4 plus our c0_timing) | Keep builds reproducible | no |
 | `Cargo.toml` | 7 (+7 / -4) | Disable inherited codec defaults at dependency seams; `[patch]` craft-media to B-EtterDigital/C0craft-libs (the presentation-window hook moved there with the muxer, 2026-10-25) | Allow the page to select a codec-free graph | no |
 | `apps/filmcraft-cli/Cargo.toml` | 3 (+3 / -3) | Explicit native dependency defaults | Keep CLI behaviour unchanged | no |
 | `apps/filmcraft-web/Cargo.toml` | 9 (+9 / -0) | Page feature, codec forwarding, native transport test deps, export interface | Reuse the existing web binary and pass K-41 | no |
@@ -53,7 +53,7 @@ and c0 tests are additions rather than upstream patch debt.
 | `crates/ui-egui/src/theme.rs` | 1 (+1 / -0) | Declare host palette module | Expose the context-local colour override | no |
 | `xtask/src/main.rs` | 6 (+6 / -0) | Forward opt-in page-control/no-default-features arguments | Build via upstream's own cargo/wasm-bindgen pipeline | no |
 
-Total: 256 added lines in 47 upstream text files (measured 2026-10-30: 255 after the 2026-10-29 debt pass, plus 1 forced by upstream's explicit imports in `encoders.rs`).
+Total: 250 added lines in 47 upstream text files (measured 2026-11-10 after the merge of upstream f4090d7b; it was already 250 before that merge, so the 256 declared on 2026-10-30 was stale, mostly the `Cargo.lock` row).
 Ratchet: 256
 Re-measured 2026-10-26 after the upstream merge (egui 0.37 port, update prompt): 281, unchanged file for file. Our header Home gate, status-bar gate, tool columns and the craft-media [patch] were kept; upstream dropped its own no-status-bar job poll (it polls every frame now), so that line left with it, not with us.
 Re-measured 2026-10-26 after the hidden-page fix: 283 added lines in 41 modified upstream files (`git diff --numstat --diff-filter=M origin/main -- . ':!c0'`). +2 in `apps/filmcraft-web/src/lib.rs`: the `raw_input_hook` seam that lets the page bridge run a `ui.*` request's UI pass while the guest view is hidden under the host's start cover (`ui.set {theme}` timed out with "no UI pass ran before the control request deadline"). Everything else is in `page_control*` and a c0 test.
