@@ -11,9 +11,10 @@ workspace = true
 
 [features]
 default = ["patent-codecs"]
-patent-codecs = ["dep:filmcraft-h264enc", "dep:filmcraft-aac", "filmcraft-codecs/patent-codecs"]
+patent-codecs = ["dep:filmcraft-h264enc", "craft-audio/aac-decode", "craft-audio/aac-encode", "filmcraft-codecs/patent-codecs"]
 
 [dependencies]
+craft-audio = { workspace = true }
 filmcraft-time = { workspace = true }
 filmcraft-frame = { workspace = true }
 filmcraft-color = { workspace = true }
@@ -29,9 +30,7 @@ filmcraft-prores = { workspace = true }
 filmcraft-dnx = { workspace = true }
 filmcraft-apv = { workspace = true }
 filmcraft-mxf = { workspace = true }
-filmcraft-aac = { workspace = true, optional = true }
 filmcraft-mp3enc = { workspace = true }
-filmcraft-flac = { workspace = true }
 filmcraft-h264enc = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

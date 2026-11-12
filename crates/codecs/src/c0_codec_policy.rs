@@ -1,7 +1,7 @@
 //! Feature boundary for metadata that otherwise instantiated an AAC decoder.
 #[cfg(feature = "patent-codecs")]
 pub fn aac_core_rate(asc: &[u8]) -> Option<u32> {
-    Some(filmcraft_aac::Decoder::new(asc).ok()?.sample_rate())
+    Some(craft_audio::aac::Decoder::new(asc).ok()?.sample_rate())
 }
 #[cfg(not(feature = "patent-codecs"))]
 pub fn aac_core_rate(asc: &[u8]) -> Option<u32> {

@@ -20,7 +20,7 @@ pub(crate) use crate::c0_codec_policy::{aac_factory, h264_factory};
 /// AAC-LC (our encoder), 320 kbps stereo by default.
 #[cfg(feature = "patent-codecs")]
 struct AacEncoder {
-    enc: filmcraft_aac::Encoder,
+    enc: craft_audio::aac::Encoder,
     rate: u32,
     channels: u32,
 }
@@ -57,7 +57,7 @@ pub(crate) fn aac_factory(_format: Format, sample_rate: u32, channels: u32, s: &
     let max = (6 * sample_rate as u64 * channels.max(1) as u64).min(u32::MAX as u64) as u32;
     let bps = (s.audio.bitrate_kbps.clamp(32, 512) * 1000).min(max);
     Some(
-        filmcraft_aac::Encoder::new(filmcraft_aac::EncoderConfig::cbr(sample_rate, channels as usize, bps))
+        craft_audio::aac::Encoder::new(craft_audio::aac::EncoderConfig::cbr(sample_rate, channels as usize, bps))
             .map(|enc| Box::new(AacEncoder { enc, rate: sample_rate, channels }) as Box<dyn AudioEncoder>)
             .map_err(|e| ExportError::Encode(e.to_string())),
     )

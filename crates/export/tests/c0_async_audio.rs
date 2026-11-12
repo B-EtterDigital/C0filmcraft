@@ -36,7 +36,7 @@ fn fixture(pending: bool) -> (Arc<Project>, ItemId, ItemId, SharedSource) {
     let id = project.add_item(
         "Tone",
         Label::Iris,
-        ItemKind::Media(MediaClip {
+        ItemKind::Media(Box::new(MediaClip {
             media: MediaRef::Generator(generator.generator.clone()),
             info: generator.info().clone(),
             interpret: Default::default(),
@@ -46,7 +46,7 @@ fn fixture(pending: bool) -> (Arc<Project>, ItemId, ItemId, SharedSource) {
             offline: false,
             proxy: None,
             identity: None,
-        }),
+        })),
         None,
     );
     let sequence = project.new_sequence("Sequence", SequenceSettings { width: 8, height: 8, frame_rate: rate, ..Default::default() }, 1, 1, None);

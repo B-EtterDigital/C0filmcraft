@@ -38,7 +38,7 @@ pub(crate) fn mjpeg_factory(format: Format, w: u32, h: u32, rate: FrameRate, s: 
 
 /// FLAC (our encoder) in MP4 / QuickTime: one frame of 4096 samples per access unit.
 pub(crate) struct FlacAudio {
-    enc: filmcraft_flac::Encoder,
+    enc: craft_audio::flac::Encoder,
     format: SampleFormat,
     /// Samples of the frame `flush` returns (shorter than a full block).
     tail: u32,
@@ -48,9 +48,9 @@ impl FlacAudio {
     pub(crate) fn new(sample_rate: u32, channels: u32, s: &ExportSettings) -> Result<Self> {
         let format = s.audio.sample_format();
         let ch = u8::try_from(channels).map_err(|_| ExportError::Unsupported("FLAC: too many audio channels".into()))?;
-        let mut cfg = filmcraft_flac::EncoderConfig::new(sample_rate, ch, format.bits() as u8);
+        let mut cfg = craft_audio::flac::EncoderConfig::new(sample_rate, ch, format.bits() as u8);
         cfg.level = s.audio.flac_level.min(8);
-        let enc = filmcraft_flac::Encoder::new(cfg).map_err(|e| ExportError::Unsupported(format!("FLAC: {e}")))?;
+        let enc = craft_audio::flac::Encoder::new(cfg).map_err(|e| ExportError::Unsupported(format!("FLAC: {e}")))?;
         Ok(FlacAudio { enc, format, tail: 0 })
     }
 }
