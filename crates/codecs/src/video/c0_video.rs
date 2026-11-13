@@ -14,7 +14,7 @@ const BACKGROUND_H264_THREADS: usize = 2;
 #[cfg(feature = "patent-codecs")]
 pub struct H264Decoder {
     avcc: Vec<u8>,
-    dec: filmcraft_h264::Decoder,
+    dec: craft_video::h264::decode::Decoder,
     length_size: usize,
     draft: bool,
     /// Worker threads (a background decoder gets fewer).
@@ -28,8 +28,8 @@ impl H264Decoder {
         if filmcraft_media::cancel::background() { BACKGROUND_H264_THREADS.min(h264_threads()) } else { h264_threads() }
     }
 
-    fn make_inner(avcc: &[u8], threads: usize) -> Result<filmcraft_h264::Decoder> {
-        let mut dec = filmcraft_h264::Decoder::with_threads(threads);
+    fn make_inner(avcc: &[u8], threads: usize) -> Result<craft_video::h264::decode::Decoder> {
+        let mut dec = craft_video::h264::decode::Decoder::with_threads(threads);
         if !avcc.is_empty() {
             dec.configure_avcc(avcc).map_err(h264_error)?;
         }
@@ -47,9 +47,9 @@ impl H264Decoder {
     pub fn annexb() -> Self {
         recycle_h264_planes();
         let threads = Self::threads_now();
-        Self { avcc: Vec::new(), dec: filmcraft_h264::Decoder::with_threads(threads), length_size: 0, draft: false, threads }
+        Self { avcc: Vec::new(), dec: craft_video::h264::decode::Decoder::with_threads(threads), length_size: 0, draft: false, threads }
     }
-    fn convert(p: filmcraft_h264::Picture) -> DecodedFrame {
+    fn convert(p: craft_video::h264::decode::Picture) -> DecodedFrame {
         use std::sync::Arc;
         let draft = p.draft;
         let (w, h) = (p.width as usize, p.height as usize);
@@ -75,9 +75,9 @@ impl H264Decoder {
 /// 4:2:2, field pictures...) is [`CodecError::Unsupported`], so the media pool shows the
 /// unreadable slate instead of a black picture (#626); anything else is a decode error.
 #[cfg(feature = "patent-codecs")]
-fn h264_error(e: filmcraft_h264::Error) -> CodecError {
+fn h264_error(e: craft_video::h264::decode::Error) -> CodecError {
     match e {
-        filmcraft_h264::Error::Unsupported(what) => CodecError::Unsupported(format!("H.264: {what}")),
+        craft_video::h264::decode::Error::Unsupported(what) => CodecError::Unsupported(format!("H.264: {what}")),
         e => CodecError::Decode(e.to_string()),
     }
 }
@@ -120,7 +120,7 @@ impl VideoDecoder for H264Decoder {
         (self.length_size == 0).then(|| {
             filmcraft_bitstream::annexb_nals(sample).iter().any(|n| match n.first().map(|h| h & 0x1f) {
                 Some(5) => true,
-                Some(6) => filmcraft_mpegts::sei_has_recovery_point(n),
+                Some(6) => craft_media::mpegts::sei_has_recovery_point(n),
                 _ => false,
             })
         })
@@ -131,13 +131,13 @@ impl VideoDecoder for H264Decoder {
 /// (`filmcraft_frame::pool`) instead of the allocator.
 #[cfg(feature = "patent-codecs")]
 fn recycle_h264_planes() {
-    filmcraft_h264::set_plane_allocator(filmcraft_frame::pool::take_u8);
+    craft_video::h264::decode::set_plane_allocator(filmcraft_frame::pool::take_u8);
 }
 
 /// Worker threads each H.264 decoder uses (frame threading; 1 on wasm).
 #[cfg(feature = "patent-codecs")]
 pub fn h264_threads() -> usize {
-    filmcraft_h264::default_threads()
+    craft_video::h264::decode::default_threads()
 }
 
 #[cfg(feature = "patent-codecs")]
@@ -148,11 +148,11 @@ pub fn h264_factory(e: &SampleEntry) -> Option<Result<Box<dyn VideoDecoder>>> {
     }
 }
 
-/// Our pure-Rust HEVC decoder (Main / Main 10, frame-threaded).
+/// Our pure-Rust HEVC decoder (Main / Main 10 and 4:2:2, frame-threaded).
 #[cfg(feature = "patent-codecs")]
 pub struct HevcDecoder {
     hvcc: Vec<u8>,
-    dec: filmcraft_hevc::Decoder,
+    dec: craft_video::hevc::decode::Decoder,
     length_size: usize,
     highest_tid: Option<u8>,
 }
@@ -160,20 +160,24 @@ pub struct HevcDecoder {
 #[cfg(feature = "patent-codecs")]
 impl HevcDecoder {
     pub fn new(hvcc: Vec<u8>) -> Result<Self> {
-        let dec = filmcraft_hevc::Decoder::from_hvcc(&hvcc).map_err(hevc_error)?;
+        let dec = craft_video::hevc::decode::Decoder::from_hvcc(&hvcc).map_err(hevc_error)?;
         let (length_size, highest_tid) = hvcc_length_size_and_tid(&hvcc);
         Ok(Self { hvcc, dec, length_size, highest_tid })
     }
     /// A decoder for Annex B byte-stream samples (start codes, in-band parameter sets: TS).
     pub fn annexb() -> Self {
-        Self { hvcc: Vec::new(), dec: filmcraft_hevc::Decoder::new(), length_size: 0, highest_tid: None }
+        Self { hvcc: Vec::new(), dec: craft_video::hevc::decode::Decoder::new(), length_size: 0, highest_tid: None }
     }
-    fn convert(p: filmcraft_hevc::Picture) -> DecodedFrame {
-        use filmcraft_hevc::Plane;
+    fn convert(p: craft_video::hevc::decode::Picture) -> DecodedFrame {
+        use craft_video::hevc::decode::{ChromaFormat, Plane};
         use std::sync::Arc;
         let (w, h) = (p.width as usize, p.height as usize);
         let (cw, ch) = (p.chroma_width as usize, p.chroma_height as usize);
         let (ys, uvs) = (p.y_stride, p.uv_stride);
+        let chroma = match p.chroma {
+            ChromaFormat::C420 => filmcraft_frame::Chroma::C420,
+            ChromaFormat::C422 => filmcraft_frame::Chroma::C422,
+        };
         let wide = |pl: Plane| -> Vec<u16> {
             match pl {
                 Plane::U16(v) => v,
@@ -183,12 +187,12 @@ impl HevcDecoder {
         let data = match (p.y, p.u, p.v) {
             (Plane::U8(y), Plane::U8(u), Plane::U8(v)) => filmcraft_frame::PixelData::Yuv8 {
                 planes: [Arc::new(tight_plane(y, ys, w, h)), Arc::new(tight_plane(u, uvs, cw, ch)), Arc::new(tight_plane(v, uvs, cw, ch))],
-                chroma: filmcraft_frame::Chroma::C420,
+                chroma,
                 alpha: None,
             },
             (y, u, v) => filmcraft_frame::PixelData::Yuv16 {
                 planes: [Arc::new(tight_plane(wide(y), ys, w, h)), Arc::new(tight_plane(wide(u), uvs, cw, ch)), Arc::new(tight_plane(wide(v), uvs, cw, ch))],
-                chroma: filmcraft_frame::Chroma::C420,
+                chroma,
                 bits: p.bit_depth,
                 alpha: None,
             },
@@ -202,9 +206,9 @@ impl HevcDecoder {
 
 /// An HEVC decoder error as a [`CodecError`] (see [`h264_error`]).
 #[cfg(feature = "patent-codecs")]
-fn hevc_error(e: filmcraft_hevc::Error) -> CodecError {
+fn hevc_error(e: craft_video::hevc::decode::Error) -> CodecError {
     match e {
-        filmcraft_hevc::Error::Unsupported(what) => CodecError::Unsupported(format!("HEVC: {what}")),
+        craft_video::hevc::decode::Error::Unsupported(what) => CodecError::Unsupported(format!("HEVC: {what}")),
         e => CodecError::Decode(e.to_string()),
     }
 }
@@ -220,8 +224,8 @@ impl VideoDecoder for HevcDecoder {
     }
     fn reset(&mut self) {
         if self.hvcc.is_empty() {
-            self.dec = filmcraft_hevc::Decoder::new();
-        } else if let Ok(d) = filmcraft_hevc::Decoder::from_hvcc(&self.hvcc) {
+            self.dec = craft_video::hevc::decode::Decoder::new();
+        } else if let Ok(d) = craft_video::hevc::decode::Decoder::from_hvcc(&self.hvcc) {
             self.dec = d;
         }
     }
@@ -247,6 +251,56 @@ pub fn hevc_factory(e: &SampleEntry) -> Option<Result<Box<dyn VideoDecoder>>> {
     match &e.codec {
         CodecConfig::Hevc(c) => Some(HevcDecoder::new(c.to_bytes()).map(|d| Box::new(d) as Box<dyn VideoDecoder>)),
         _ => None,
+    }
+}
+
+#[cfg(all(test, feature = "patent-codecs"))]
+mod hevc_convert_tests {
+    use super::HevcDecoder;
+    use craft_video::hevc::decode::{ChromaFormat, ColorInfo, Picture, Plane};
+    use filmcraft_frame::{Chroma, PixelData};
+
+    /// A 4x2 picture whose chroma planes are 2 samples wide and `chroma_height` rows high.
+    fn picture(chroma: ChromaFormat, chroma_height: u32, wide: bool) -> Picture {
+        let plane = |n: usize, v: u16| if wide { Plane::U16(vec![v; n]) } else { Plane::U8(vec![v as u8; n]) };
+        let uv = 2 * chroma_height as usize;
+        Picture {
+            width: 4,
+            height: 2,
+            chroma_width: 2,
+            chroma_height,
+            chroma,
+            bit_depth: if wide { 10 } else { 8 },
+            y: plane(8, 64),
+            u: plane(uv, 128),
+            v: plane(uv, 128),
+            y_stride: 4,
+            uv_stride: 2,
+            pts: 0,
+            poc: 0,
+            key: true,
+            color: ColorInfo { full_range: false, primaries: 1, transfer: 1, matrix: 1 },
+            sar: (1, 1),
+            draft: false,
+        }
+    }
+
+    fn chroma_of(data: &PixelData) -> Option<(Chroma, usize)> {
+        match data {
+            PixelData::Yuv8 { planes, chroma, .. } => Some((*chroma, planes[1].len())),
+            PixelData::Yuv16 { planes, chroma, .. } => Some((*chroma, planes[1].len())),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn frames_keep_the_decoded_chroma_sampling() {
+        for wide in [false, true] {
+            let f = HevcDecoder::convert(picture(ChromaFormat::C420, 1, wide));
+            assert_eq!(chroma_of(&f.frame.data), Some((Chroma::C420, 2)), "4:2:0, 16-bit {wide}");
+            let f = HevcDecoder::convert(picture(ChromaFormat::C422, 2, wide));
+            assert_eq!(chroma_of(&f.frame.data), Some((Chroma::C422, 4)), "4:2:2, 16-bit {wide}");
+        }
     }
 }
 
