@@ -14,6 +14,7 @@ default = ["patent-codecs"]
 patent-codecs = ["craft-video/h264-decode", "craft-video/hevc-decode", "craft-audio/aac-decode", "craft-audio/aac-encode", "craft-audio/decode-native", "craft-audio/symphonia", "symphonia/aac"]
 
 [dependencies]
+craft-y4m = { workspace = true }
 craft-audio = { workspace = true }
 craft-video = { workspace = true }
 filmcraft-time = { workspace = true }
@@ -24,7 +25,6 @@ filmcraft-isobmff = { workspace = true }
 filmcraft-matroska = { workspace = true }
 craft-media = { workspace = true, features = ["avi", "mpegts", "mxf", "ogg"] }
 filmcraft-bitstream = { workspace = true }
-filmcraft-dnx = { workspace = true }
 craft-jpeg = { git = "https://github.com/storytold/craft-libs", rev = "b577b219e96a1aa8cba5ed2966c6b32ea9cfc7b2" }
 rayon = { workspace = true }
 thiserror = { workspace = true }

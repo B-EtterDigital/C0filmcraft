@@ -57,6 +57,33 @@ impl crate::audio::PacketDecoder {
 pub fn aac_output_rate<'a>(asc: &[u8], _units: impl IntoIterator<Item = &'a [u8]>) -> Option<u32> {
     crate::c0_codec_policy::aac_core_rate(asc)
 }
+/// ADTS, LATM and `.aac` files: upstream reads their headers with craft-audio's AAC module, which
+/// exists only with the AAC decoder. An ADTS frame is handed on whole, so the TS audio decoder
+/// reports that AAC needs the browser ([`crate::audio::PacketDecoder::ensure_aac`]); a LATM
+/// configuration is not read, so the stream is listed as unsupported.
+pub fn adts_split(frame: &[u8]) -> Option<(Vec<u8>, &[u8])> {
+    Some((Vec::new(), frame))
+}
+pub fn decode_adts(_bytes: &[u8]) -> Result<Option<(u32, Vec<Vec<f32>>)>> {
+    Err(unsupported())
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LatmConfig {
+    pub asc: Vec<u8>,
+    pub sample_rate: u32,
+    pub channels: u32,
+}
+impl LatmConfig {
+    pub fn new(asc: Vec<u8>, sample_rate: u32, channels: u32) -> Self {
+        Self { asc, sample_rate, channels }
+    }
+}
+pub fn latm_config(_frame: &[u8]) -> Option<LatmConfig> {
+    None
+}
+pub fn latm_split(_frame: &[u8], _last: &mut Option<LatmConfig>) -> Option<(Vec<u8>, Vec<u8>)> {
+    None
+}
 pub fn avc_presentation_order<H: AsRef<[u8]>>(_heads: impl IntoIterator<Item = H>) -> Option<Vec<i64>> {
     None
 }

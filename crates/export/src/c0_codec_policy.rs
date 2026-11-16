@@ -6,7 +6,7 @@ pub fn pending_audio_error() -> crate::ExportError {
     crate::ExportError::Unsupported("Media is still loading asynchronously; synchronous audio export is not supported here until its media is ready".into())
 }
 #[cfg(feature = "patent-codecs")]
-pub use filmcraft_h264enc::PassStats;
+pub use craft_video::h264::PassStats;
 #[cfg(not(feature = "patent-codecs"))]
 #[derive(Clone, Debug)]
 pub struct PassStats;

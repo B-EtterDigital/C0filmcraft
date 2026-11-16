@@ -1061,7 +1061,7 @@ dependencies = [
 [[package]]
 name = "craft-audio"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=b577b219e96a1aa8cba5ed2966c6b32ea9cfc7b2#b577b219e96a1aa8cba5ed2966c6b32ea9cfc7b2"
+source = "git+https://github.com/storytold/craft-libs?rev=156b491b91f3693f4fce53bf69bb97791f51198f#156b491b91f3693f4fce53bf69bb97791f51198f"
 dependencies = [
  "craft-media",
  "log",
@@ -1081,9 +1081,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-cfb"
+version = "0.1.0"
+source = "git+https://github.com/storytold/craft-libs?rev=7f3fdc0dfebd03f33a241f91f916e9a78d3e5c93#7f3fdc0dfebd03f33a241f91f916e9a78d3e5c93"
+
+[[package]]
 name = "craft-docpath"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=47107f660191de2f0b425569506f4daa4faadac9#47107f660191de2f0b425569506f4daa4faadac9"
+
+[[package]]
+name = "craft-dpx"
+version = "0.1.0"
+source = "git+https://github.com/storytold/craft-libs?rev=156b491b91f3693f4fce53bf69bb97791f51198f#156b491b91f3693f4fce53bf69bb97791f51198f"
+dependencies = [
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "craft-fonts-build"
@@ -1124,7 +1137,7 @@ dependencies = [
 [[package]]
 name = "craft-media"
 version = "0.1.0"
-source = "git+https://github.com/B-EtterDigital/C0craft-libs?rev=6fdf35edc72d9ab0ac613248f4e2a44f01a1b938#6fdf35edc72d9ab0ac613248f4e2a44f01a1b938"
+source = "git+https://github.com/B-EtterDigital/C0craft-libs?rev=940ec7cabc342b52e9fb1036b1b453ec357ef05c#940ec7cabc342b52e9fb1036b1b453ec357ef05c"
 dependencies = [
  "chrono",
  "thiserror 2.0.21",
@@ -1189,7 +1202,7 @@ dependencies = [
 [[package]]
 name = "craft-video"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=b577b219e96a1aa8cba5ed2966c6b32ea9cfc7b2#b577b219e96a1aa8cba5ed2966c6b32ea9cfc7b2"
+source = "git+https://github.com/storytold/craft-libs?rev=156b491b91f3693f4fce53bf69bb97791f51198f#156b491b91f3693f4fce53bf69bb97791f51198f"
 dependencies = [
  "craft-media",
  "rayon",
@@ -1222,6 +1235,14 @@ version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=47107f660191de2f0b425569506f4daa4faadac9#47107f660191de2f0b425569506f4daa4faadac9"
 dependencies = [
  "quick-xml 0.41.0",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "craft-y4m"
+version = "0.1.0"
+source = "git+https://github.com/storytold/craft-libs?rev=25c7a8959cf70cf8c3f076d05baadb0990710569#25c7a8959cf70cf8c3f076d05baadb0990710569"
+dependencies = [
  "thiserror 2.0.21",
 ]
 
@@ -2022,6 +2043,9 @@ dependencies = [
 [[package]]
 name = "filmcraft-cfb"
 version = "0.20.1"
+dependencies = [
+ "craft-cfb",
+]
 
 [[package]]
 name = "filmcraft-cli"
@@ -2052,9 +2076,9 @@ dependencies = [
  "craft-jpeg",
  "craft-media",
  "craft-video",
+ "craft-y4m",
  "filmcraft-bitstream",
  "filmcraft-color",
- "filmcraft-dnx",
  "filmcraft-frame",
  "filmcraft-isobmff",
  "filmcraft-matroska",
@@ -2087,16 +2111,6 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "filmcraft-dnx"
-version = "0.20.1"
-dependencies = [
- "filmcraft-bitstream",
- "filmcraft-testkit",
- "rayon",
  "thiserror 2.0.21",
 ]
 
@@ -2161,10 +2175,8 @@ dependencies = [
  "filmcraft-audio-dsp",
  "filmcraft-codecs",
  "filmcraft-color",
- "filmcraft-dnx",
  "filmcraft-frame",
  "filmcraft-geom",
- "filmcraft-h264enc",
  "filmcraft-isobmff",
  "filmcraft-media",
  "filmcraft-project",
@@ -2252,16 +2264,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "filmcraft-h264enc"
-version = "0.20.1"
-dependencies = [
- "filmcraft-bitstream",
- "filmcraft-testkit",
- "rayon",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "filmcraft-interchange"
 version = "0.20.1"
 dependencies = [
@@ -2302,6 +2304,7 @@ dependencies = [
 name = "filmcraft-media"
 version = "0.20.1"
 dependencies = [
+ "craft-dpx",
  "filmcraft-color",
  "filmcraft-dng",
  "filmcraft-frame",
@@ -6705,7 +6708,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
  "windows-sys 0.61.2",
